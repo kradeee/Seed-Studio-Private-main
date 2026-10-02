@@ -12,7 +12,18 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Emscripten-generated glue is rebuilt upstream, not hand-edited.
+    "public/engine/api.js",
+    "playwright-report/**",
+    "test-results/**",
   ]),
+  {
+    files: ["components/studio/Studio.tsx"],
+    rules: {
+      // Static local decoration; retain the original asset without an image server.
+      "@next/next/no-img-element": "off",
+    },
+  },
   {
     files: ["components/ui/**/*.{ts,tsx}", "hooks/use-mobile.ts"],
     rules: {

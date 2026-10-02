@@ -78,3 +78,24 @@ generare chunk reali con Minecraft Java 1.21.1 o 1.21.4 e mostrarli con Prismari
 Viewer. Richiede Java 21 e un terminale aggiuntivo oltre al sito. Leggi
 **[PRIMO_AVVIO_PREVIEW.md](PRIMO_AVVIO_PREVIEW.md)** per installazione, accettazione
 della EULA, avvio e limiti di questa prima versione locale.
+
+## Controlli dell’interfaccia
+
+Dopo aver installato le dipendenze:
+
+```bash
+npm run typecheck
+npm run lint
+npx playwright install chromium
+npm run test:e2e
+```
+
+Playwright avvia il sito su `http://127.0.0.1:5173`. I test verificano ricerca reale,
+selezione di un risultato, cambio dimensione, copia e riapertura di un link, layout
+mobile e guida. Le prove di interruzione ritardano intenzionalmente i risultati
+per verificare che non cambino il mondo dopo stop, seed manuale/casuale o cambio
+versione. Non avviano Minecraft e non richiedono di accettare la EULA.
+
+Il workflow *Seed Studio checks* esegue anche test motore/preview, TypeScript,
+lint, build e test browser a ogni push e pull request. La preview 3D con il server
+Minecraft reale richiede ancora una verifica separata con Java 21.

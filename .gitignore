@@ -51,3 +51,8 @@ engine/cubiomes/
 # Local Minecraft generation service: downloaded jars, generated worlds and EULA choice
 preview-service/.data/
 preview-service/node_modules/
+
+# Local type-check and browser-test output
+*.tsbuildinfo
+/playwright-report/
+/test-results/

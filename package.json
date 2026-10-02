@@ -16,7 +16,9 @@
     "preview:install": "npm --prefix preview-service install",
     "preview:eula": "npm --prefix preview-service run accept-eula",
     "preview:start": "npm --prefix preview-service start",
-    "test:preview": "npm --prefix preview-service test"
+    "test:preview": "npm --prefix preview-service test",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -47,6 +49,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
+    "@playwright/test": "1.62.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
