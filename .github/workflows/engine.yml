@@ -1,0 +1,87 @@
+# Rebuild the WebAssembly engine from the latest Cubiomes (xpple fork), test it against
+# the positions verified in game, and open a pull request with the result.
+#
+# Run it by hand: GitHub → Actions → "Rebuild engine" → Run workflow.
+# It also checks every Monday and only builds when Cubiomes has changed.
+name: Rebuild engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      cubiomes_ref:
+        description: Cubiomes branch, tag or commit (xpple/cubiomes)
+        default: master
+      emsdk_version:
+        description: Emscripten version (6.0.10 built and passed the tests on 2026-09-29; "latest" to try the newest)
+        default: 6.0.10
+  schedule:
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Cubiomes
+        uses: actions/checkout@v4
+        with:
+          repository: xpple/cubiomes
+          ref: ${{ inputs.cubiomes_ref || 'master' }}
+          path: engine/cubiomes
+
+      - name: Anything new?
+        id: changed
+        run: |
+          NEW=$(git -C engine/cubiomes rev-parse HEAD)
+          OLD=$(sed -n 's/^cubiomes: xpple\/cubiomes \([0-9a-f]*\).*/\1/p' public/engine/ENGINE_VERSION.txt)
+          echo "Cubiomes now $NEW, engine built from ${OLD:-unknown}"
+          if [ "$NEW" = "$OLD" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "Cubiomes unchanged since the last build: nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Emscripten
+        if: steps.changed.outputs.build == 'true'
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ inputs.emsdk_version || '6.0.10' }}
+
+      - name: Build
+        if: steps.changed.outputs.build == 'true'
+        run: bash engine/build.sh engine/cubiomes
+
+      - uses: actions/setup-node@v4
+        if: steps.changed.outputs.build == 'true'
+        with:
+          node-version: 22
+
+      - name: Test against the positions verified in game
+        if: steps.changed.outputs.build == 'true'
+        run: npm run test:engine
+
+      - name: New Minecraft versions?
+        if: steps.changed.outputs.build == 'true'
+        run: node engine/check-versions.mjs engine/cubiomes
+
+      - name: Open a pull request
+        if: steps.changed.outputs.build == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: engine/update
+          add-paths: |
+            public/engine/api.js
+            public/engine/api.wasm
+            public/engine/ENGINE_VERSION.txt
+          commit-message: Rebuild engine from latest Cubiomes
+          title: Engine rebuilt from latest Cubiomes
+          body: |
+            Rebuilt `public/engine/api.js` and `api.wasm` from xpple/cubiomes and tested against
+            the positions verified in game (`tests/engine.test.mjs`): all tests passed.
+            See the workflow run's summary for any new Minecraft version to add to the site.

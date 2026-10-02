@@ -1,0 +1,4 @@
+cubiomes: xpple/cubiomes 5815e4f790e4800d02857c5640eccb82cef7cb6b (as shipped by Seeder v1.3.1)
+cubiomes-date: unknown
+emscripten: unknown
+built: by Seeder, before Seed Studio
