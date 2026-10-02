@@ -55,7 +55,7 @@ export async function startMinecraft(job){
   const exited=(code)=>finish(new Error(`Minecraft si è chiuso (${code}). ${tail.slice(-450)}`));
   const failed=e=>finish(new Error(`Avvio Java fallito: ${e.message}`));
   let settled=false;
-  function finish(error){if(settled)return;settled=true;clearTimeout(timer);signal.removeEventListener('abort',aborted);child.off('exit',exited);child.off('error',failed);error?reject(error):resolve()}
+  function finish(error){if(settled)return;settled=true;clearTimeout(timer);signal.removeEventListener('abort',aborted);child.off('exit',exited);child.off('error',failed);if(error)reject(error);else resolve()}
   function read(data){tail=(tail+data.toString()).slice(-3000);if(/Done \([^\n]+\)!/.test(tail))finish()}
   child.stdout.on('data',read);child.stderr.on('data',read);child.once('exit',exited);child.once('error',failed);signal.addEventListener('abort',aborted,{once:true});if(signal.aborted)aborted();
  });
@@ -68,7 +68,7 @@ export async function startMinecraft(job){
   const aborted=()=>finish(new Error('Generazione annullata.'));
   const failed=e=>finish(new Error(`Connessione al mondo fallita: ${e.message}`));
   const ended=()=>finish(new Error('Minecraft ha chiuso la connessione prima della preview.'));
-  function finish(e){if(settled)return;settled=true;clearTimeout(timer);signal.removeEventListener('abort',aborted);bot.off('error',failed);bot.off('end',ended);e?reject(e):resolve()}
+  function finish(e){if(settled)return;settled=true;clearTimeout(timer);signal.removeEventListener('abort',aborted);bot.off('error',failed);bot.off('end',ended);if(e)reject(e);else resolve()}
   bot.once('error',failed);bot.once('end',ended);
   bot.once('spawn',async()=>{try{await bot.waitForChunksToLoad();finish()}catch(e){finish(e)}});
   signal.addEventListener('abort',aborted,{once:true});if(signal.aborted)aborted();
