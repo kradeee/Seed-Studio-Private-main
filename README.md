@@ -27,6 +27,12 @@ You describe the world you want, choose biomes, structures, dimensions and gener
 
 It combines a fast browser-based world engine with an interactive map and an optional local Minecraft preview service, so a seed can go from **search result → map → actual first-person world** without leaving the project.
 
+### 🎬 See it in action
+
+![Seed Studio demo: pick Cherry Grove and Plains, add a village, search, open a result and land on the village on the map](docs/demo.gif)
+
+**▶ Try it live:** [English](https://kradeee.github.io/Seed-Studio-Private-main/en/) · [Italiano](https://kradeee.github.io/Seed-Studio-Private-main/)
+
 ## ✨ Highlights
 
 <table>
