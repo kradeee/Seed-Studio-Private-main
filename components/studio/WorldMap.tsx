@@ -2,6 +2,7 @@ import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'rea
 import {Plus,Minus,LocateFixed,MapPin,Compass,Maximize,Minimize,LoaderCircle,X,Copy,Check,Crosshair,Layers,Mountain,Navigation,Link2,Download} from 'lucide-react';
 import {COLORS,DIMENSIONS,HEIGHTS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,DEFAULT_LAYERS,LOCATE_ID,VERSIONS,fmt,hex,type Dimension} from './data';
 import {SITE} from '../../site.config';
+import {track} from './analytics';
 import {BIOME_NAMES,tr} from './i18n';
 import {TileEngine,TILE_BLOCKS,TILE_CELLS,type TileKey} from './tiles';
 import {rpc} from './engine-client';
@@ -135,7 +136,7 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
  const toggleLayer=(id:number)=>setLayers(l=>{const n=new Set(l);if(n.has(id))n.delete(id);else n.add(id);return n});
 
  /* ---- export: the current view as a PNG, with markers and a caption ---- */
- const exportPng=()=>{
+ const exportPng=()=>{track('export-png');
   const src=canvas.current;if(!src||!size.w)return;const dpr=src.width/size.w,bar=34;
   const out=document.createElement('canvas');out.width=src.width;out.height=src.height+Math.round(bar*dpr);
   const ctx=out.getContext('2d');if(!ctx)return;ctx.drawImage(src,0,0);ctx.scale(dpr,dpr);
@@ -194,7 +195,7 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
     {selMeta&&<p className="popup-note">{selMeta.note}</p>}
     {selMeta&&LOCATE_ID[selMeta.id]&&<p className="popup-note locate">{tr('Per verificarla nel gioco: fai','To check it in game:')} <code>/tp</code> {tr('qui vicino, poi','close by, then')} <code>{(dim===-1?'/execute in the_nether run locate structure ':dim===1?'/execute in the_end run locate structure ':'/locate structure ')+LOCATE_ID[selMeta.id]}</code>. {tr('Da lontano','From far away')} <code>/locate</code> {tr('può indicarne un’altra: si ferma alla prima che trova, non alla più vicina.','may point to another one: it stops at the first it finds, not the nearest.')}</p>}
     {info?.portal&&<p className="popup-note">{tr('Stanza del portale','Portal room')}: X {fmt(info.portal.x)} · Z {fmt(info.portal.z)}</p>}
-    <div className="popup-actions"><button onClick={()=>copyText(tp(info?.portal||selected,selected.type===STRONGHOLD?undefined:info?.height!=null&&dim===0?info.height+1:undefined),'tp')}>{copied==='tp'?<Check size={14}/>:<Copy size={14}/>}{copied==='tp'?tr('Copiato','Copied'):tr('Copia /tp','Copy /tp')}</button>{linkTo?<button onClick={()=>copyText(linkTo({x:selected.x,z:selected.z,type:selected.type,dim}),'link')}>{copied==='link'?<Check size={14}/>:<Link2 size={14}/>}Link</button>:<button onClick={()=>copyText(`${selected.x} ${selected.z}`,'xz')}>{copied==='xz'?<Check size={14}/>:<Copy size={14}/>}X Z</button>}<button onClick={()=>centre(selected.x,selected.z)}><Crosshair size={14}/>{tr('Centra','Centre')}</button></div></>})()}
+    <div className="popup-actions"><button onClick={()=>{track('copy-tp');copyText(tp(info?.portal||selected,selected.type===STRONGHOLD?undefined:info?.height!=null&&dim===0?info.height+1:undefined),'tp')}}>{copied==='tp'?<Check size={14}/>:<Copy size={14}/>}{copied==='tp'?tr('Copiato','Copied'):tr('Copia /tp','Copy /tp')}</button>{linkTo?<button onClick={()=>{track('copy-structure-link');copyText(linkTo({x:selected.x,z:selected.z,type:selected.type,dim}),'link')}}>{copied==='link'?<Check size={14}/>:<Link2 size={14}/>}Link</button>:<button onClick={()=>copyText(`${selected.x} ${selected.z}`,'xz')}>{copied==='xz'?<Check size={14}/>:<Copy size={14}/>}X Z</button>}<button onClick={()=>centre(selected.x,selected.z)}><Crosshair size={14}/>{tr('Centra','Centre')}</button></div></>})()}
   </div>}
   <div className="map-controls"><button aria-label={tr('Aumenta zoom','Zoom in')} onClick={()=>zoomBy(1/1.5)} disabled={view.bpp<=MIN_BPP}><Plus/></button><button aria-label={tr('Riduci zoom','Zoom out')} onClick={()=>zoomBy(1.5)} disabled={view.bpp>=MAX_BPP}><Minus/></button><button aria-label={dim===0?tr('Vai allo spawn','Go to spawn'):tr('Vai a 0, 0','Go to 0, 0')} onClick={()=>centre(origin.x,origin.z)}><LocateFixed size={20}/></button><div className="north"><span>N</span><Compass size={22}/></div></div>
   {legend.length>0&&<div className="map-legend" aria-label={tr('Biomi in vista','Biomes in view')}>{legend.map(b=><span key={b}><i style={{background:hex(COLORS[b]||[128,128,128])}}/>{biomeName(b)}</span>)}</div>}

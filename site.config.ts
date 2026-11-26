@@ -13,6 +13,9 @@ export const SITE = {
   adsenseClient: '',
   /** AdSense ad unit (slot) id for the banner under the map. */
   adsenseSlot: '',
+  /** GoatCounter site code (the "seedstudio" of seedstudio.goatcounter.com). Cookie-free visit and
+   *  event counting; empty: no analytics script at all. Localhost visits are never counted. */
+  goatcounterCode: 'seedstudio',
   /** Contact e-mail shown on the privacy page. */
   contactEmail: '',
 } as const;
