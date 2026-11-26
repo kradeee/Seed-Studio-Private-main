@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Seed Studio</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<style>
+:root{color-scheme:dark;--bg:#111917;--text:#edf2ef;--muted:#a0ada6;--lime:#c4f278;--line:#344039}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Arial,Helvetica,sans-serif}
+main{max-width:720px;margin:0 auto;padding:40px 22px 80px}
+h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:28px 0 6px}p,li{color:#cfd8d3}
+a{color:var(--lime)}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:24px}
+.lang a{margin-left:10px}small{color:var(--muted)}section[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><a href="./" id="back">← Seed Studio</a><span class="lang"><a href="?lang=it" hreflang="it">Italiano</a><a href="?lang=en" hreflang="en">English</a></span></div>
+
+<section lang="it" id="it">
+<h1>Privacy</h1>
+<small>Ultimo aggiornamento: %UPDATED%</small>
+<h2>In breve</h2>
+<p>Seed Studio non ha account, non chiede dati personali e non usa cookie propri né strumenti di analisi. Tutti i calcoli (mappe, ricerca dei seed) avvengono nel tuo browser.</p>
+<h2>Cosa resta sul tuo dispositivo</h2>
+<p>I seed che salvi con «Salva» sono conservati nel <em>localStorage</em> del tuo browser, solo sul tuo dispositivo. Non vengono inviati a nessuno. Puoi cancellarli dal sito (icona del cestino) o svuotando i dati del sito nel browser.</p>
+<h2>Hosting</h2>
+<p>Il sito è ospitato su GitHub Pages. Come ogni server web, GitHub può registrare dati tecnici delle richieste (ad esempio l’indirizzo IP) per sicurezza e funzionamento: vedi la <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noreferrer">privacy di GitHub</a>.</p>
+%ADS_IT%
+<h2>Contatti</h2>
+<p>%CONTACT_IT%</p>
+</section>
+
+<section lang="en" id="en" hidden>
+<h1>Privacy</h1>
+<small>Last updated: %UPDATED%</small>
+<h2>In short</h2>
+<p>Seed Studio has no accounts, asks for no personal data and uses no cookies of its own and no analytics. All calculations (maps, seed search) happen in your browser.</p>
+<h2>What stays on your device</h2>
+<p>Seeds you keep with “Save” are stored in your browser’s <em>localStorage</em>, on your device only. They are not sent to anyone. You can delete them on the site (bin icon) or by clearing the site data in your browser.</p>
+<h2>Hosting</h2>
+<p>The site is hosted on GitHub Pages. Like any web server, GitHub may log technical request data (such as the IP address) for security and operation: see <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noreferrer">GitHub’s privacy statement</a>.</p>
+%ADS_EN%
+<h2>Contact</h2>
+<p>%CONTACT_EN%</p>
+</section>
+</main>
+<script>
+// Show the language asked for (?lang=en) or the browser's, and point "back" to that version.
+var q=new URLSearchParams(location.search).get('lang');
+var en=q?q==='en':!/^it\b/i.test(navigator.language||'');
+if(en){document.getElementById('it').hidden=true;document.getElementById('en').hidden=false;document.documentElement.lang='en';document.getElementById('back').href='./en/'}
+</script>
+</body>
+</html>

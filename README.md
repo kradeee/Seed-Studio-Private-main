@@ -117,17 +117,54 @@ npm run dev
 
 Then open the local address printed by the development server.
 
+Then open http://localhost:5173 (Italian) or http://localhost:5173/en/ (English).
+
 ### Production build
 
 ```bash
-npm run build
+npm run build     # type-check + static build in dist/
+npm run preview   # serve dist/ locally
 ```
+
+The output is a **fully static site**: the seed engine runs in the visitor's browser (WebAssembly + Web Workers), so there is no server, database or account system. All paths are relative, so `dist/` works at a domain root or under a sub-path.
+
+## 🌍 Publishing on GitHub Pages
+
+`.github/workflows/pages.yml` tests, lints, builds and publishes the site at every push to `main`.
+
+1. On GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions** (one time only).
+2. Push to `main`. The site goes live at `https://kradeee.github.io/Seed-Studio-Private-main/`.
+3. If you use a custom domain, set it in **Settings → Pages** and update `url` in [`site.config.ts`](site.config.ts): canonical links, hreflang, the sitemap and the social image all read it.
+
+> A public Pages site needs a public repository on the free GitHub plan.
+
+## 💶 Monetisation and site settings
+
+Everything lives in [`site.config.ts`](site.config.ts). Empty values switch a feature off.
+
+| Setting | What it does |
+|---|---|
+| `url` | Public address (canonical, hreflang, sitemap, Open Graph). |
+| `supportUrl` | Ko-fi / Buy Me a Coffee / PayPal.me link: shows a **Support Seed Studio** link in the footer. |
+| `adsenseClient` + `adsenseSlot` | Shows one responsive Google AdSense unit under the map and adds the advertising section to the privacy page. Until both are set, no ad script is loaded. |
+| `contactEmail` | Contact shown on the privacy page. |
+
+Before turning ads on:
+
+- AdSense must approve the site; a custom domain (≈ €10/year) is usually needed, because shared `github.io` addresses are hard to get approved.
+- In the EU/EEA/UK, enable Google's certified consent message (**AdSense → Privacy & messaging → GDPR**). The site does not add its own cookie banner because, without ads, it sets no cookies at all.
+- Add an `ads.txt` file in `public/` with the line AdSense gives you.
+
+## 🌐 Languages and SEO
+
+- Italian at `/`, English at `/en/`, with the language switch in the header (the seed and map position are kept). UI strings live next to the code as `tr('italiano', 'English')`; biome names are in `components/studio/biome-names*.json`.
+- Each language page has its own title, description, canonical URL, `hreflang` alternates, Open Graph / Twitter card (`public/og-image.jpg`) and JSON-LD. The build writes `sitemap.xml` and `robots.txt`.
 
 ## 👁️ First-person Minecraft preview
 
 The first-person preview is optional and lives in [`preview-service/`](preview-service/).
 
-It requires **Java 21** and runs alongside the web app.
+It requires **Java 21** and runs alongside the web app. Because it talks to a service on your own computer, the panel only appears when the site itself runs on `localhost` (`npm run dev` or `npm run preview`); visitors of the public site do not see it.
 
 For the complete setup, EULA step and troubleshooting guide, read:
 
@@ -141,18 +178,22 @@ Generated worlds, downloaded JARs and local service data are intentionally exclu
 
 ```text
 Seed-Studio-Private-main/
-├── app/                    # App entry points and global styles
-├── components/studio/      # Main Seed Studio UI
-│   ├── Studio.tsx
-│   ├── Composer.tsx
-│   ├── WorldMap.tsx
-│   └── MinecraftPreview.tsx
-├── public/engine/          # WebAssembly seed / biome engine
-├── preview-service/        # Local real-world Minecraft preview
-├── engine/                 # Engine build and version tooling
-├── tests/                  # Engine verification tests
-├── scripts/                # Build and development helpers
-└── .github/workflows/      # Tests and engine rebuild automation
+├── index.html, en/index.html  # Italian and English entry pages (SEO meta)
+├── privacy.html               # Privacy page (both languages)
+├── site.config.ts             # Public URL, tips link, AdSense, contact
+├── src/main.tsx               # React entry
+├── components/studio/         # Seed Studio UI
+│   ├── Studio.tsx             # Page, search, saved seeds
+│   ├── Composer.tsx           # Search criteria and results
+│   ├── WorldMap.tsx           # Interactive map, PNG export
+│   ├── MinecraftPreview.tsx   # First-person preview (local only)
+│   ├── i18n.ts                # Language, translations, paths
+│   └── favorites.ts, AdSlot.tsx
+├── public/engine/             # WebAssembly seed / biome engine
+├── preview-service/           # Local real-world Minecraft preview
+├── engine/                    # Engine build and version tooling
+├── tests/                     # Engine verification tests
+└── .github/workflows/         # Tests, Pages deploy, engine rebuild
 ```
 
 ## ⚙️ Engine verification
@@ -197,7 +238,7 @@ See:
 
 - **TypeScript**
 - **React**
-- **Vinext / Vite**
+- **Vite**
 - **WebAssembly**
 - **Cubiomes / Seeder**
 - **Prismarine Viewer**
@@ -210,7 +251,7 @@ Seed Studio is being developed toward a simple goal:
 
 > **Don't hunt through random Minecraft seeds. Describe your ideal world and find it.**
 
-Planned areas of work include improving the seed composer, richer result ranking, more visual world previews, better mobile interaction and expanding the real-world preview experience.
+Done: static deploy, Italian/English, saved seeds, PNG map export, SEO and optional ads/tips. Next areas of work include improving the seed composer, richer result ranking, more visual world previews, better mobile interaction and expanding the real-world preview experience.
 
 ---
 

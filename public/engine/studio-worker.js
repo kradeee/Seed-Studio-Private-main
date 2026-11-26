@@ -1,6 +1,7 @@
 /* Engine: Cubiomes / Seeder, MIT. See adjacent licenses. App adapter by Seed Studio. */
-self.Module={locateFile:p=>'/engine/'+p,onRuntimeInitialized:()=>{self.engine=new Seeder(Module);self.postMessage({kind:'ready'})},onAbort:()=>self.postMessage({kind:'error',message:'Il motore non è disponibile. Ricarica la pagina.'})};
-importScripts('/engine/api.js','/engine/seeder.js','/engine/structures.js');
+/* Paths are relative to this file, so the site works under any hosting sub-path. */
+self.Module={locateFile:p=>p,onRuntimeInitialized:()=>{self.engine=new Seeder(Module);self.postMessage({kind:'ready'})},onAbort:()=>self.postMessage({kind:'error',message:'engine-unavailable'})};
+importScripts('api.js','seeder.js','structures.js');
 
 const S=()=>self.SeedStudioStructures;
 const STRONGHOLD=99;
@@ -29,7 +30,8 @@ function slime(seed,x0,z0,x1,z1){
  return out;
 }
 
-const BASTION=['Unità abitative','Stalla degli hoglin','Stanza del tesoro','Ponte'];
+/* Tags are codes: the page translates them. */
+const BASTION=['bastion-housing','bastion-stables','bastion-treasure','bastion-bridge'];
 function detail(m){
  const {seed,version,dim,type,x,z}=m;const info={};
  const b=engine.biomeAt({mcVersion:version,seed,dimension:dim,x,y:dim===0?256:64,z}).biome;info.biome=b;
@@ -39,18 +41,18 @@ function detail(m){
  const v=engine.structureVariant({mcVersion:version,seed,dimension:dim,type,x,z}).variant;
  if(v.supported){
   const tags=[];
-  if(type===5){if(v.biome>=0)info.biome=v.biome;if(v.abandoned)tags.push('Villaggio abbandonato (zombi)')}
+  if(type===5){if(v.biome>=0)info.biome=v.biome;if(v.abandoned)tags.push('village-abandoned')}
   // Ruined portals: no variant tags. Their type (and so size, burial) is decided by the biome at
   // the depth the game places them, which needs terrain the engine does not compute; checked in
   // game on 26.3 (seed 12345, 16 0: engine says ocean, the game builds a standard portal).
-  if(type===4)tags.push(v.basement?'Con laboratorio sotterraneo':'Senza seminterrato');
+  if(type===4)tags.push(v.basement?'igloo-basement':'igloo-no-basement');
   if(type===19&&v.start>=0&&v.start<4)tags.push(BASTION[v.start]);
-  if(type===7&&v.biome>=0&&![0,10,24,44,45,46,47,48,49,50].includes(v.biome))tags.push('Arenato sulla spiaggia');
+  if(type===7&&v.biome>=0&&![0,10,24,44,45,46,47,48,49,50].includes(v.biome))tags.push('shipwreck-beached');
   if(v.by&&type!==11)info.y=v.by;
   info.tags=tags;
  }
- if(type===21&&v.endShip)info.tags=[...(info.tags||[]),'Con la nave dell’End (elitre!)'];
- if(type===18){const f=engine.fortressSpawners({mcVersion:version,seed,chunkX:x>>4,chunkZ:z>>4});if(!f.error)info.tags=[...(info.tags||[]),`${f.spawners.length} generatori di blaze`,...(f.wartRooms?[`${f.wartRooms} stanze di verruche`]:[])]}
+ if(type===21&&v.endShip)info.tags=[...(info.tags||[]),'end-ship'];
+ if(type===18){const f=engine.fortressSpawners({mcVersion:version,seed,chunkX:x>>4,chunkZ:z>>4});if(!f.error)info.tags=[...(info.tags||[]),`blaze-spawners:${f.spawners.length}`,...(f.wartRooms?[`wart-rooms:${f.wartRooms}`]:[])]}
  return info;
 }
 
@@ -95,4 +97,4 @@ self.onmessage=({data:m})=>{try{
  }else if(m.kind==='search'){
   const r=engine.findSeeds(m.criteria);self.postMessage({kind:'complete',shardId:m.shardId,...r});
  }
-}catch(e){self.postMessage({kind:'error',id:m.id,shardId:m.shardId,message:e.message||'Errore del motore'})}};
+}catch(e){self.postMessage({kind:'error',id:m.id,shardId:m.shardId,message:e.message||'engine-error'})}};

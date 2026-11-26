@@ -4,7 +4,8 @@ Strumento web per comporre criteri di ricerca ed esplorare seed di Minecraft Jav
 
 ## Cosa contiene
 
-- interfaccia React/Vinext in `app/` e `components/studio/`;
+- interfaccia React + Vite in `src/` e `components/studio/`, in italiano (`/`) e inglese (`/en/`);
+- seed salvati nel browser ed esportazione della mappa in PNG;
 - mappa interattiva a tessere (più worker in parallelo, cache) con zoom, trascinamento e pinch;
 - Overworld, Nether ed End; quota dei biomi (superficie, grotte, abisso);
 - tutte le strutture Java 1.18+: villaggi, avamposti, templi, capanne, igloo, rovine oceaniche, relitti, monumenti, magioni, portali in rovina, città antiche, rovine di sentiero, camere della prova, accampamenti (26.3), roccaforti, fortezze, bastioni, città dell’End;
@@ -26,11 +27,13 @@ npm install
 npm run dev
 ```
 
-Per la build di produzione:
+Per la build di produzione (sito statico in `dist/`, pubblicato su GitHub Pages da `.github/workflows/pages.yml`):
 
 ```bash
 npm run build
 ```
+
+Indirizzo pubblico, link per le mance, AdSense e contatti si impostano in `site.config.ts`.
 
 ## Note sul motore
 

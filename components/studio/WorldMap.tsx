@@ -1,8 +1,8 @@
-'use client';
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import {Plus,Minus,LocateFixed,MapPin,Compass,Maximize,Minimize,LoaderCircle,X,Copy,Check,Crosshair,Layers,Mountain,Navigation,Link2} from 'lucide-react';
-import {COLORS,DIMENSIONS,HEIGHTS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,DEFAULT_LAYERS,LOCATE_ID,fmt,hex,type Dimension} from './data';
-import names from './biome-names.json';
+import {Plus,Minus,LocateFixed,MapPin,Compass,Maximize,Minimize,LoaderCircle,X,Copy,Check,Crosshair,Layers,Mountain,Navigation,Link2,Download} from 'lucide-react';
+import {COLORS,DIMENSIONS,HEIGHTS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,DEFAULT_LAYERS,LOCATE_ID,VERSIONS,fmt,hex,type Dimension} from './data';
+import {SITE} from '../../site.config';
+import {BIOME_NAMES,tr} from './i18n';
 import {TileEngine,TILE_BLOCKS,TILE_CELLS,type TileKey} from './tiles';
 import {rpc} from './engine-client';
 
@@ -15,8 +15,10 @@ type Info={biome?:number;height?:number;y?:number;tags?:string[];eyes?:number;li
 type Selected={type:number|null;x:number;z:number;info?:Info|null};
 type Summary={spawnX:number;spawnZ:number;spawnBiome:number;approxHeight:number|null};
 
-const BIOME_NAMES=names as Record<string,string>;
-const biomeName=(id:number|undefined)=>id==null||id<0?'—':BIOME_NAMES[id]||'Bioma '+id;
+const biomeName=(id:number|undefined)=>id==null||id<0?'—':BIOME_NAMES[id]||tr('Bioma ','Biome ')+id;
+/* Worker tags are codes (see studio-worker.js): translate them here. */
+const TAGS:Record<string,[string,string]>={'village-abandoned':['Villaggio abbandonato (zombi)','Abandoned village (zombies)'],'igloo-basement':['Con laboratorio sotterraneo','With a basement lab'],'igloo-no-basement':['Senza seminterrato','No basement'],'shipwreck-beached':['Arenato sulla spiaggia','Beached'],'end-ship':['Con la nave dell’End (elitre!)','With the End ship (elytra!)'],'bastion-housing':['Unità abitative','Housing units'],'bastion-stables':['Stalla degli hoglin','Hoglin stables'],'bastion-treasure':['Stanza del tesoro','Treasure room'],'bastion-bridge':['Ponte','Bridge']};
+const tagText=(t:string)=>{const [k,n]=t.split(':');if(k==='blaze-spawners')return n+tr(' generatori di blaze',' blaze spawners');if(k==='wart-rooms')return n+tr(' stanze di verruche',' wart rooms');const x=TAGS[k];return x?tr(x[0],x[1]):t};
 const MIN_BPP=.25,MAX_BPP=8;
 const clampBpp=(b:number)=>Math.max(MIN_BPP,Math.min(MAX_BPP,b));
 
@@ -28,7 +30,7 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
  const [layers,setLayers]=useState<Set<number>>(()=>new Set(DEFAULT_LAYERS)),[slime,setSlime]=useState(false),[grid,setGrid]=useState(false),[layerPanel,setLayerPanel]=useState(false);
  const [summary,setSummary]=useState<Summary|null>(null),[pois,setPois]=useState<Poi[]>([]),[strongholds,setStrongholds]=useState<Poi[]>([]),[slimes,setSlimes]=useState<number[]|null>(null);
  const [available,setAvailable]=useState<Record<number,number>>({}),[nearest,setNearest]=useState<Poi[]>([]),[legend,setLegend]=useState<number[]>([]);
- const [selected,setSelected]=useState<Selected|null>(null),[hover,setHover]=useState('Trascina per esplorare · rotella per lo zoom'),[expanded,setExpanded]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState(''),[tick,setTick]=useState(0),[copied,setCopied]=useState('');
+ const [selected,setSelected]=useState<Selected|null>(null),[hover,setHover]=useState(tr('Trascina per esplorare · rotella per lo zoom','Drag to explore · scroll to zoom')),[expanded,setExpanded]=useState(false),[busy,setBusy]=useState(true),[error,setError]=useState(''),[tick,setTick]=useState(0),[copied,setCopied]=useState('');
  const [goto,setGoto]=useState({x:'',z:''});
 
  const tileKey:TileKey=useMemo(()=>({seed,version,dim,y:dim===0?y:64}),[seed,version,dim,y]);
@@ -120,7 +122,7 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
  useEffect(()=>{const el=wrap.current;if(!el)return;const wheel=(ev:WheelEvent)=>{ev.preventDefault();const r=el.getBoundingClientRect();const mx=ev.clientX-r.left-r.width/2,mz=ev.clientY-r.top-r.height/2;setView(v=>{const nb=clampBpp(v.bpp*(ev.deltaY>0?1.2:1/1.2));const bx=v.cx+mx*v.bpp,bz=v.cz+mz*v.bpp;return{bpp:nb,cx:bx-mx*nb,cz:bz-mz*nb}})};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel)},[]);
  const zoomBy=(f:number)=>setView(v=>({...v,bpp:clampBpp(v.bpp*f)}));
  const centre=(x:number,z:number)=>setView(v=>({...v,cx:x,cz:z}));
- const copyText=async(t:string,tag:string)=>{try{await navigator.clipboard.writeText(t);setCopied(tag);setTimeout(()=>setCopied(''),1800)}catch{setError('Copia non disponibile in questo browser.')}};
+ const copyText=async(t:string,tag:string)=>{try{await navigator.clipboard.writeText(t);setCopied(tag);setTimeout(()=>setCopied(''),1800)}catch{setError(tr('Copia non disponibile in questo browser.','Copying is not available in this browser.'))}};
 
  const screen=(x:number,z:number)=>({left:(x-view.cx)/view.bpp+size.w/2,top:(z-view.cz)/view.bpp+size.h/2});
  const onScreen=(x:number,z:number,pad=30)=>{const p=screen(x,z);return p.left>-pad&&p.top>-pad&&p.left<size.w+pad&&p.top<size.h+pad};
@@ -132,25 +134,40 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
  const tp=(p:{x:number;z:number},yy?:number)=>`/tp @s ${p.x} ${yy??'~'} ${p.z}`;
  const toggleLayer=(id:number)=>setLayers(l=>{const n=new Set(l);if(n.has(id))n.delete(id);else n.add(id);return n});
 
+ /* ---- export: the current view as a PNG, with markers and a caption ---- */
+ const exportPng=()=>{
+  const src=canvas.current;if(!src||!size.w)return;const dpr=src.width/size.w,bar=34;
+  const out=document.createElement('canvas');out.width=src.width;out.height=src.height+Math.round(bar*dpr);
+  const ctx=out.getContext('2d');if(!ctx)return;ctx.drawImage(src,0,0);ctx.scale(dpr,dpr);
+  const dot=(x:number,z:number,col:string,r:number)=>{const q=screen(x,z);ctx.beginPath();ctx.arc(q.left,q.top,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#0e1512';ctx.stroke()};
+  for(const p of markers){const m=STRUCTURE_BY_ID.get(p.type);if(m)dot(p.x,p.z,m.color,compact?4:7)}
+  if(spawnHere)dot(spawnHere.x,spawnHere.z,'#cefd82',8);
+  const dimName=DIMENSIONS.find(d=>d.id===dim)?.name||'';const ver=VERSIONS.find(v=>v.id===baseVersion)?.name||'';
+  ctx.fillStyle='#111917';ctx.fillRect(0,size.h,size.w,bar);ctx.font='13px Arial, Helvetica, sans-serif';ctx.textBaseline='middle';
+  ctx.fillStyle='#edf2ef';ctx.fillText(`Seed ${seed} · Java ${ver} · ${dimName} · X ${fmt(Math.round(view.cx))} Z ${fmt(Math.round(view.cz))}`,12,size.h+bar/2);
+  ctx.textAlign='right';ctx.fillStyle='#c4f278';ctx.fillText(SITE.url.replace(/^https?:\/\//,'').replace(/\/$/,''),size.w-12,size.h+bar/2);
+  out.toBlob(b=>{if(!b)return;const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`seed-${seed}-${dimName.toLowerCase()}.png`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)},'image/png');
+ };
  const popupPos=selected?screen(selected.x,selected.z):null;
- return <section className={'map-shell '+(expanded?'expanded':'')} aria-label="Mappa interattiva del seed">
+ return <section className={'map-shell '+(expanded?'expanded':'')} aria-label={tr('Mappa interattiva del seed','Interactive seed map')}>
  <div className="map-toolbar">
-  <div className="dim-tabs" role="group" aria-label="Dimensione">{DIMENSIONS.map(d=><button key={d.id} className={'dim-'+d.id+(dim===d.id?' active':'')} aria-pressed={dim===d.id} onClick={()=>switchDim(d.id)}>{d.name}</button>)}</div>
-  <div className="map-tabs" role="group" aria-label="Stile della mappa">{([['relief','Rilievo'],['biomes','Biomi']] as const).map(([id,label])=><button key={id} className={(dim===0?mode===id:id==='biomes')?'active':''} onClick={()=>setMode(id)} aria-pressed={mode===id} disabled={dim!==0}>{label}</button>)}</div>
-  {dim===0&&<label className="height-select"><Mountain size={15}/><span className="sr-only">Quota</span><select value={y} onChange={e=>setY(Number(e.target.value))} aria-label="Quota dei biomi">{HEIGHTS.map(h=><option key={h.y} value={h.y}>{h.name}</option>)}</select></label>}
-  <button className={'layers-button'+(layerPanel?' active':'')} onClick={()=>setLayerPanel(!layerPanel)} aria-expanded={layerPanel}><Layers size={16}/><span>Livelli</span></button>
-  <button className="icon-button expand" aria-label={expanded?'Riduci mappa':'Espandi mappa'} onClick={()=>setExpanded(!expanded)}>{expanded?<Minimize size={17}/>:<Maximize size={17}/>}</button>
+  <div className="dim-tabs" role="group" aria-label={tr('Dimensione','Dimension')}>{DIMENSIONS.map(d=><button key={d.id} className={'dim-'+d.id+(dim===d.id?' active':'')} aria-pressed={dim===d.id} onClick={()=>switchDim(d.id)}>{d.name}</button>)}</div>
+  <div className="map-tabs" role="group" aria-label={tr('Stile della mappa','Map style')}>{([['relief',tr('Rilievo','Relief')],['biomes',tr('Biomi','Biomes')]] as const).map(([id,label])=><button key={id} className={(dim===0?mode===id:id==='biomes')?'active':''} onClick={()=>setMode(id)} aria-pressed={mode===id} disabled={dim!==0}>{label}</button>)}</div>
+  {dim===0&&<label className="height-select"><Mountain size={15}/><span className="sr-only">{tr('Quota','Height')}</span><select value={y} onChange={e=>setY(Number(e.target.value))} aria-label={tr('Quota dei biomi','Biome height')}>{HEIGHTS.map(h=><option key={h.y} value={h.y}>{h.name}</option>)}</select></label>}
+  <button className={'layers-button'+(layerPanel?' active':'')} onClick={()=>setLayerPanel(!layerPanel)} aria-expanded={layerPanel}><Layers size={16}/><span>{tr('Livelli','Layers')}</span></button>
+  <button className="layers-button" onClick={exportPng} title={tr('Scarica la vista come immagine PNG','Download this view as a PNG image')}><Download size={16}/><span>PNG</span></button>
+  <button className="icon-button expand" aria-label={expanded?tr('Riduci mappa','Shrink map'):tr('Espandi mappa','Expand map')} onClick={()=>setExpanded(!expanded)}>{expanded?<Minimize size={17}/>:<Maximize size={17}/>}</button>
  </div>
  {layerPanel&&<div className="layer-panel">
   <div className="chip-row">{layerTypes.map(s=>{const Icon=s.icon;return <button key={s.id} className={'layer-chip'+(layers.has(s.id)?' on':'')} aria-pressed={layers.has(s.id)} onClick={()=>toggleLayer(s.id)}><i style={{background:s.color}}><Icon size={12}/></i>{s.short}</button>})}</div>
   <div className="chip-row secondary">
-   <button className="text-button" onClick={()=>setLayers(new Set(layerTypes.map(s=>s.id)))}>Tutte</button><button className="text-button" onClick={()=>setLayers(new Set())}>Nessuna</button>
-   {dim===0&&<button className={'layer-chip'+(slime?' on':'')} aria-pressed={slime} onClick={()=>setSlime(!slime)}><i style={{background:'#7ef56e'}}/>Chunk di slime</button>}
-   <button className={'layer-chip'+(grid?' on':'')} aria-pressed={grid} onClick={()=>setGrid(!grid)}><i style={{background:'#445'}}/>Griglia dei chunk</button>
-   {(slime||grid)&&view.bpp>(grid&&!slime?2:4)&&<small>Avvicinati per vederli</small>}
+   <button className="text-button" onClick={()=>setLayers(new Set(layerTypes.map(s=>s.id)))}>{tr('Tutte','All')}</button><button className="text-button" onClick={()=>setLayers(new Set())}>{tr('Nessuna','None')}</button>
+   {dim===0&&<button className={'layer-chip'+(slime?' on':'')} aria-pressed={slime} onClick={()=>setSlime(!slime)}><i style={{background:'#7ef56e'}}/>{tr('Chunk di slime','Slime chunks')}</button>}
+   <button className={'layer-chip'+(grid?' on':'')} aria-pressed={grid} onClick={()=>setGrid(!grid)}><i style={{background:'#445'}}/>{tr('Griglia dei chunk','Chunk grid')}</button>
+   {(slime||grid)&&view.bpp>(grid&&!slime?2:4)&&<small>{tr('Avvicinati per vederli','Zoom in to see them')}</small>}
   </div>
  </div>}
- <div className={'map-canvas dim'+dim} ref={wrap} tabIndex={0} role="application" aria-label="Mappa: trascina per spostarti, rotella o pulsanti per lo zoom, frecce per muoverti."
+ <div className={'map-canvas dim'+dim} ref={wrap} tabIndex={0} role="application" aria-label={tr('Mappa: trascina per spostarti, rotella o pulsanti per lo zoom, frecce per muoverti.','Map: drag to move, scroll wheel or buttons to zoom, arrow keys to pan.')}
   onKeyDown={e=>{const step=view.bpp*120;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setView(v=>({...v,cx:v.cx+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),cz:v.cz+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0)}))}if(e.key==='+'||e.key==='=')zoomBy(1/1.5);if(e.key==='-')zoomBy(1.5);if(e.key==='Escape'){if(selected)setSelected(null);else setExpanded(false)}}}
   onPointerDown={e=>{if((e.target as HTMLElement).closest('button,.map-popup'))return;touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY});if(touches.current.size===2){const [a,b]=[...touches.current.values()];pinch.current={d:Math.hypot(a.x-b.x,a.y-b.y)||1,bpp:view.bpp};drag.current=null;return}e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,y:e.clientY,cx:view.cx,cz:view.cz,moved:false}}}
   onPointerMove={e=>{if(touches.current.has(e.pointerId))touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch.current&&touches.current.size===2){const [a,b]=[...touches.current.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);const nb=clampBpp(pinch.current.bpp*pinch.current.d/Math.max(1,d));setView(v=>({...v,bpp:nb}));return}const p=drag.current;if(p){const dx=e.clientX-p.x,dy=e.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)p.moved=true;if(p.moved)setView(v=>({...v,cx:p.cx-dx*v.bpp,cz:p.cz-dy*v.bpp}));return}
@@ -160,37 +177,37 @@ export default function WorldMap({seed,version,baseVersion,onError,focus,onViewC
   {spawnHere&&onScreen(spawnHere.x,spawnHere.z)&&<button className="map-marker spawn" style={screen(spawnHere.x,spawnHere.z)} onClick={()=>setSelected({type:-1,x:spawnHere.x,z:spawnHere.z})}><MapPin size={30}/><span>Spawn</span></button>}
   {markers.map(p=>{const m=STRUCTURE_BY_ID.get(p.type);if(!m)return null;const Icon=m.icon;const isSel=selected&&selected.type===p.type&&selected.x===p.x&&selected.z===p.z;
    return <button key={p.type+'|'+p.x+'|'+p.z} className={'pin'+(compact?' compact':'')+(isSel?' selected':'')} style={{...screen(p.x,p.z),['--pin' as string]:m.color}} onClick={()=>setSelected({type:p.type,x:p.x,z:p.z})} aria-label={`${m.name}, X ${p.x} Z ${p.z}`}>{!compact&&<Icon size={15} strokeWidth={2.2}/>}<span className="pin-label">{m.name}</span></button>})}
-  {selected&&popupPos&&<div className="map-popup" style={{left:Math.max(150,Math.min(size.w-150,popupPos.left)),top:popupPos.top} } data-below={popupPos.top<size.h*.55?'1':undefined} role="dialog" aria-label="Dettagli del punto">
-   <button className="popup-close" aria-label="Chiudi" onClick={()=>setSelected(null)}><X size={15}/></button>
-   {(()=>{const info=selected.info;const title=selected.type===-1?'Spawn del mondo':selMeta?selMeta.name:'Punto sulla mappa';const color=selMeta?.color||(selected.type===-1?'#cefd82':'#9fb3a5');const Icon=selMeta?.icon||(selected.type===-1?MapPin:Crosshair);
+  {selected&&popupPos&&<div className="map-popup" style={{left:Math.max(150,Math.min(size.w-150,popupPos.left)),top:popupPos.top} } data-below={popupPos.top<size.h*.55?'1':undefined} role="dialog" aria-label={tr('Dettagli del punto','Point details')}>
+   <button className="popup-close" aria-label={tr('Chiudi','Close')} onClick={()=>setSelected(null)}><X size={15}/></button>
+   {(()=>{const info=selected.info;const title=selected.type===-1?tr('Spawn del mondo','World spawn'):selMeta?selMeta.name:tr('Punto sulla mappa','Map point');const color=selMeta?.color||(selected.type===-1?'#cefd82':'#9fb3a5');const Icon=selMeta?.icon||(selected.type===-1?MapPin:Crosshair);
     return <><div className="popup-title"><i style={{background:color}}><Icon size={14}/></i><strong>{title}</strong></div>
-    <dl><div><dt>Coordinate</dt><dd>X {fmt(selected.x)} · Z {fmt(selected.z)}</dd></div>
-    {info===undefined?<div><dt>Dettagli</dt><dd><LoaderCircle size={13} className="spin"/></dd></div>:info&&<>
-     {info.biome!=null&&info.biome>=0&&<div><dt>Bioma</dt><dd>{biomeName(info.biome)}</dd></div>}
-     {info.height!=null&&dim===0&&<div><dt>Quota superficie</dt><dd>≈ Y {info.height}</dd></div>}
-     {info.eyes!=null&&info.eyes>=0&&<div><dt>Occhi già nel portale</dt><dd>{info.eyes} / 12{info.eyes===12?' · portale già attivo!':''}</dd></div>}
-     {info.libraries!=null&&info.libraries>=0&&selected.type===STRONGHOLD&&<div><dt>Biblioteche</dt><dd>{info.libraries}</dd></div>}
+    <dl><div><dt>{tr('Coordinate','Coordinates')}</dt><dd>X {fmt(selected.x)} · Z {fmt(selected.z)}</dd></div>
+    {info===undefined?<div><dt>{tr('Dettagli','Details')}</dt><dd><LoaderCircle size={13} className="spin"/></dd></div>:info&&<>
+     {info.biome!=null&&info.biome>=0&&<div><dt>{tr('Bioma','Biome')}</dt><dd>{biomeName(info.biome)}</dd></div>}
+     {info.height!=null&&dim===0&&<div><dt>{tr('Quota superficie','Surface height')}</dt><dd>≈ Y {info.height}</dd></div>}
+     {info.eyes!=null&&info.eyes>=0&&<div><dt>{tr('Occhi già nel portale','Eyes already in the portal')}</dt><dd>{info.eyes} / 12{info.eyes===12?tr(' · portale già attivo!',' · portal already active!'):''}</dd></div>}
+     {info.libraries!=null&&info.libraries>=0&&selected.type===STRONGHOLD&&<div><dt>{tr('Biblioteche','Libraries')}</dt><dd>{info.libraries}</dd></div>}
     </>}
-    {selected.type!==-1&&<div><dt>Distanza da {dim===0?'spawn':'0, 0'}</dt><dd>{fmt(dist(selected))} blocchi</dd></div>}
+    {selected.type!==-1&&<div><dt>{tr('Distanza da','Distance from')} {dim===0?'spawn':'0, 0'}</dt><dd>{fmt(dist(selected))} {tr('blocchi','blocks')}</dd></div>}
     </dl>
-    {info?.tags&&info.tags.length>0&&<div className="popup-tags">{info.tags.map(t=><span key={t}>{t}</span>)}</div>}
+    {info?.tags&&info.tags.length>0&&<div className="popup-tags">{info.tags.map(t=><span key={t}>{tagText(t)}</span>)}</div>}
     {selMeta&&<p className="popup-note">{selMeta.note}</p>}
-    {selMeta&&LOCATE_ID[selMeta.id]&&<p className="popup-note locate">Per verificarla nel gioco: fai <code>/tp</code> qui vicino, poi <code>{(dim===-1?'/execute in the_nether run locate structure ':dim===1?'/execute in the_end run locate structure ':'/locate structure ')+LOCATE_ID[selMeta.id]}</code>. Da lontano <code>/locate</code> può indicarne un’altra: si ferma alla prima che trova, non alla più vicina.</p>}
-    {info?.portal&&<p className="popup-note">Stanza del portale: X {fmt(info.portal.x)} · Z {fmt(info.portal.z)}</p>}
-    <div className="popup-actions"><button onClick={()=>copyText(tp(info?.portal||selected,selected.type===STRONGHOLD?undefined:info?.height!=null&&dim===0?info.height+1:undefined),'tp')}>{copied==='tp'?<Check size={14}/>:<Copy size={14}/>}{copied==='tp'?'Copiato':'Copia /tp'}</button>{linkTo?<button onClick={()=>copyText(linkTo({x:selected.x,z:selected.z,type:selected.type,dim}),'link')}>{copied==='link'?<Check size={14}/>:<Link2 size={14}/>}Link</button>:<button onClick={()=>copyText(`${selected.x} ${selected.z}`,'xz')}>{copied==='xz'?<Check size={14}/>:<Copy size={14}/>}X Z</button>}<button onClick={()=>centre(selected.x,selected.z)}><Crosshair size={14}/>Centra</button></div></>})()}
+    {selMeta&&LOCATE_ID[selMeta.id]&&<p className="popup-note locate">{tr('Per verificarla nel gioco: fai','To check it in game:')} <code>/tp</code> {tr('qui vicino, poi','close by, then')} <code>{(dim===-1?'/execute in the_nether run locate structure ':dim===1?'/execute in the_end run locate structure ':'/locate structure ')+LOCATE_ID[selMeta.id]}</code>. {tr('Da lontano','From far away')} <code>/locate</code> {tr('può indicarne un’altra: si ferma alla prima che trova, non alla più vicina.','may point to another one: it stops at the first it finds, not the nearest.')}</p>}
+    {info?.portal&&<p className="popup-note">{tr('Stanza del portale','Portal room')}: X {fmt(info.portal.x)} · Z {fmt(info.portal.z)}</p>}
+    <div className="popup-actions"><button onClick={()=>copyText(tp(info?.portal||selected,selected.type===STRONGHOLD?undefined:info?.height!=null&&dim===0?info.height+1:undefined),'tp')}>{copied==='tp'?<Check size={14}/>:<Copy size={14}/>}{copied==='tp'?tr('Copiato','Copied'):tr('Copia /tp','Copy /tp')}</button>{linkTo?<button onClick={()=>copyText(linkTo({x:selected.x,z:selected.z,type:selected.type,dim}),'link')}>{copied==='link'?<Check size={14}/>:<Link2 size={14}/>}Link</button>:<button onClick={()=>copyText(`${selected.x} ${selected.z}`,'xz')}>{copied==='xz'?<Check size={14}/>:<Copy size={14}/>}X Z</button>}<button onClick={()=>centre(selected.x,selected.z)}><Crosshair size={14}/>{tr('Centra','Centre')}</button></div></>})()}
   </div>}
-  <div className="map-controls"><button aria-label="Aumenta zoom" onClick={()=>zoomBy(1/1.5)} disabled={view.bpp<=MIN_BPP}><Plus/></button><button aria-label="Riduci zoom" onClick={()=>zoomBy(1.5)} disabled={view.bpp>=MAX_BPP}><Minus/></button><button aria-label={dim===0?'Vai allo spawn':'Vai a 0, 0'} onClick={()=>centre(origin.x,origin.z)}><LocateFixed size={20}/></button><div className="north"><span>N</span><Compass size={22}/></div></div>
-  {legend.length>0&&<div className="map-legend" aria-label="Biomi in vista">{legend.map(b=><span key={b}><i style={{background:hex(COLORS[b]||[128,128,128])}}/>{biomeName(b)}</span>)}</div>}
-  <div className="scale-bar"><i style={{width:Math.round((view.bpp<=.5?16:view.bpp<=1.5?64:view.bpp<=3?128:view.bpp<=6?512:1000)/view.bpp)}}/><span>{fmt(view.bpp<=.5?16:view.bpp<=1.5?64:view.bpp<=3?128:view.bpp<=6?512:1000)} blocchi</span></div>
-  {busy&&<div className="map-loading" role="status"><LoaderCircle className="spin" size={16}/>Genero il terreno…</div>}
+  <div className="map-controls"><button aria-label={tr('Aumenta zoom','Zoom in')} onClick={()=>zoomBy(1/1.5)} disabled={view.bpp<=MIN_BPP}><Plus/></button><button aria-label={tr('Riduci zoom','Zoom out')} onClick={()=>zoomBy(1.5)} disabled={view.bpp>=MAX_BPP}><Minus/></button><button aria-label={dim===0?tr('Vai allo spawn','Go to spawn'):tr('Vai a 0, 0','Go to 0, 0')} onClick={()=>centre(origin.x,origin.z)}><LocateFixed size={20}/></button><div className="north"><span>N</span><Compass size={22}/></div></div>
+  {legend.length>0&&<div className="map-legend" aria-label={tr('Biomi in vista','Biomes in view')}>{legend.map(b=><span key={b}><i style={{background:hex(COLORS[b]||[128,128,128])}}/>{biomeName(b)}</span>)}</div>}
+  <div className="scale-bar"><i style={{width:Math.round((view.bpp<=.5?16:view.bpp<=1.5?64:view.bpp<=3?128:view.bpp<=6?512:1000)/view.bpp)}}/><span>{fmt(view.bpp<=.5?16:view.bpp<=1.5?64:view.bpp<=3?128:view.bpp<=6?512:1000)} {tr('blocchi','blocks')}</span></div>
+  {busy&&<div className="map-loading" role="status"><LoaderCircle className="spin" size={16}/>{tr('Genero il terreno…','Generating terrain…')}</div>}
   {error&&<div className="map-error" role="alert">{error}</div>}
  </div>
  <div className="map-status"><span>{hover}</span>
-  <form className="goto" onSubmit={e=>{e.preventDefault();const x=parseInt(goto.x),z=parseInt(goto.z);if(Number.isFinite(x)&&Number.isFinite(z)){centre(x,z);setSelected({type:null,x,z})}}}><Navigation size={13}/><input aria-label="Coordinata X" placeholder="X" inputMode="numeric" value={goto.x} onChange={e=>setGoto({...goto,x:e.target.value})}/><input aria-label="Coordinata Z" placeholder="Z" inputMode="numeric" value={goto.z} onChange={e=>setGoto({...goto,z:e.target.value})}/><button type="submit">Vai</button></form>
+  <form className="goto" onSubmit={e=>{e.preventDefault();const x=parseInt(goto.x),z=parseInt(goto.z);if(Number.isFinite(x)&&Number.isFinite(z)){centre(x,z);setSelected({type:null,x,z})}}}><Navigation size={13}/><input aria-label={tr('Coordinata X','X coordinate')} placeholder="X" inputMode="numeric" value={goto.x} onChange={e=>setGoto({...goto,x:e.target.value})}/><input aria-label={tr('Coordinata Z','Z coordinate')} placeholder="Z" inputMode="numeric" value={goto.z} onChange={e=>setGoto({...goto,z:e.target.value})}/><button type="submit">{tr('Vai','Go')}</button></form>
  </div>
  <div className="nearby">
-  <div className="nearby-head"><strong>Strutture più vicine {dim===0?'allo spawn':'a 0, 0'}</strong><span>{dim===0&&summary?`Spawn X ${fmt(summary.spawnX)} · Z ${fmt(summary.spawnZ)} · ${biomeName(summary.spawnBiome)}`:dim===-1?'Coordinate del Nether (÷ 8)':'Le città dell’End sono oltre i 1.000 blocchi'}</span></div>
-  <div className="nearby-grid">{nearest.length===0?<span className="nearby-empty"><LoaderCircle size={13} className="spin"/>Cerco le strutture…</span>:nearest.map(p=>{const m=STRUCTURE_BY_ID.get(p.type);if(!m)return null;const Icon=m.icon;return <button key={p.type} className="nearby-item" onClick={()=>{if(!layers.has(p.type))toggleLayer(p.type);setView(v=>({...v,cx:p.x,cz:p.z,bpp:Math.min(v.bpp,2)}));setSelected({type:p.type,x:p.x,z:p.z})}}><i style={{background:m.color}}><Icon size={13}/></i><span><b>{m.name}</b><small>{fmt(dist(p))} blocchi · {fmt(p.x)}, {fmt(p.z)}</small></span></button>})}</div>
+  <div className="nearby-head"><strong>{tr('Strutture più vicine','Nearest structures to')} {dim===0?tr('allo spawn','spawn'):tr('a 0, 0','0, 0')}</strong><span>{dim===0&&summary?`Spawn X ${fmt(summary.spawnX)} · Z ${fmt(summary.spawnZ)} · ${biomeName(summary.spawnBiome)}`:dim===-1?tr('Coordinate del Nether (÷ 8)','Nether coordinates (÷ 8)'):tr('Le città dell’End sono oltre i 1.000 blocchi','End cities are beyond 1,000 blocks')}</span></div>
+  <div className="nearby-grid">{nearest.length===0?<span className="nearby-empty"><LoaderCircle size={13} className="spin"/>{tr('Cerco le strutture…','Finding structures…')}</span>:nearest.map(p=>{const m=STRUCTURE_BY_ID.get(p.type);if(!m)return null;const Icon=m.icon;return <button key={p.type} className="nearby-item" onClick={()=>{if(!layers.has(p.type))toggleLayer(p.type);setView(v=>({...v,cx:p.x,cz:p.z,bpp:Math.min(v.bpp,2)}));setSelected({type:p.type,x:p.x,z:p.z})}}><i style={{background:m.color}}><Icon size={13}/></i><span><b>{m.name}</b><small>{fmt(dist(p))} {tr('blocchi','blocks')} · {fmt(p.x)}, {fmt(p.z)}</small></span></button>})}</div>
  </div>
  </section>
 }

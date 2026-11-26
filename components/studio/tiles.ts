@@ -1,4 +1,3 @@
-'use client';
 /* Tile engine for the world map.
  *
  * The world is cut into 512×512-block tiles (128×128 cells at the engine's 1:4 biome
@@ -6,6 +5,7 @@
  * centre of the view first, and finished tiles stay cached, so panning back and forth is
  * instant and zooming never recomputes what is already known. */
 import {COLORS,OCEANS} from './data';
+import {WORKER_URL,engineMessage} from './engine-client';
 
 export const TILE_CELLS=128;
 export const TILE_BLOCKS=TILE_CELLS*4;
@@ -30,13 +30,13 @@ export class TileEngine{
  onError:(m:string)=>void=()=>{};
  constructor(n:number){
   for(let i=0;i<n;i++){
-   const w=new Worker('/engine/studio-worker.js');const slot={w,busy:null as Job|null,ready:false};
+   const w=new Worker(WORKER_URL);const slot={w,busy:null as Job|null,ready:false};
    w.onmessage=({data:m})=>{
     if(m.kind==='ready'){slot.ready=true;this.pump();return}
     if(m.kind==='map'&&slot.busy){const j=slot.busy;slot.busy=null;this.inflight.delete(j.key);this.store(j.key,{ids:m.ids,heights:m.heights,fallback:m.rgba});this.onTile();this.pump();return}
-    if(m.kind==='error'){const j=slot.busy;slot.busy=null;if(j){this.inflight.delete(j.key);this.failed.add(j.key)}this.onError(m.message);this.pump()}
+    if(m.kind==='error'){const j=slot.busy;slot.busy=null;if(j){this.inflight.delete(j.key);this.failed.add(j.key)}this.onError(engineMessage(m.message));this.pump()}
    };
-   w.onerror=()=>{slot.busy=null;this.onError('Impossibile caricare il motore. Ricarica la pagina.')};
+   w.onerror=()=>{slot.busy=null;this.onError(engineMessage('load'))};
    this.workers.push(slot);
   }
  }
