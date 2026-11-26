@@ -1,8 +1,9 @@
 import {useEffect,useRef,useState} from 'react';
-import {Check,X,SlidersHorizontal,Search,Square,Shuffle,Info,LoaderCircle,ChevronDown,TreePalm,MapPin} from 'lucide-react';
+import {Check,X,SlidersHorizontal,Search,Square,Shuffle,Info,LoaderCircle,ChevronDown,TreePalm,MapPin,Coffee} from 'lucide-react';
 import {BIOME_GROUPS,COLORS,DIMENSIONS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,VERSIONS,fmt,hex,type Dimension} from './data';
 import {BIOME_NAMES,tr} from './i18n';
 import {paint} from './tiles';
+import {SITE} from '../../site.config';
 
 export type BiomeWish=Record<number,1|-1>;
 export type ResultPreview={ids:Int32Array;heights:Int16Array|null;rgba:Uint8ClampedArray;x:number;z:number;w:number;h:number};
@@ -69,6 +70,7 @@ export default function Composer(p:Props){
    {[...p.results].sort((a,b)=>sort==='near'?(a.score??0)-(b.score??0):a.order-b.order).map(r=>{const where=r.dim===0?tr('dallo spawn','from spawn'):r.dim===-1?tr('da 0, 0','from 0, 0'):tr('dal centro','from the centre');return <button key={r.seed} className={'result'+(p.current===r.seed?' active':'')} onClick={()=>p.onOpen(r)}><Thumb r={r}/><span className="result-body"><code>{r.seed}</code>
     {r.score!=null&&Number.isFinite(r.score)&&r.dists&&r.dists.length>0&&<strong>{tr('Tutto entro','All within')} {fmt(r.score)} {tr('blocchi','blocks')} {where}</strong>}
     <small><MapPin size={11}/>Spawn {fmt(r.spawnX)}, {fmt(r.spawnZ)}{r.island?` · ${tr('isola','island')} ${r.island.width}×${r.island.length}`:''}</small>
-    {r.dists&&r.dists.length>0&&<span className="dist-tags">{r.dists.map(d=><span key={d.kind+d.id}>{d.kind==='s'?STRUCTURE_BY_ID.get(d.id)?.name:BIOME_NAMES[d.id]} {d.d==null?tr('oltre il raggio','beyond radius'):fmt(d.d)}</span>)}</span>}</span></button>})}</div>}
+    {r.dists&&r.dists.length>0&&<span className="dist-tags">{r.dists.map(d=><span key={d.kind+d.id}>{d.kind==='s'?STRUCTURE_BY_ID.get(d.id)?.name:BIOME_NAMES[d.id]} {d.d==null?tr('oltre il raggio','beyond radius'):fmt(d.d)}</span>)}</span>}</span></button>})}
+   {SITE.supportUrl&&!p.searching&&<a className="support-nudge" href={SITE.supportUrl} target="_blank" rel="noreferrer"><Coffee size={16}/><span>{tr('Trovato il mondo giusto?','Found the right world?')} <b>{tr('Offrimi un caffè','Buy me a coffee')}</b></span></a>}</div>}
  </>:<div className="explore-intro"><Search size={34}/><h2>{tr('Dove vuoi andare?','Where to?')}</h2><p>{tr('Inserisci un seed (anche testo, come nel gioco) sotto la mappa o lasciati sorprendere.','Enter a seed under the map (text works too, as in the game) or let us surprise you.')}</p><button className="primary" onClick={p.onRandom}><Shuffle size={18}/>{tr('Seed casuale','Random seed')}</button><div className="divider"/><h3>{tr('Muoviti liberamente','Move freely')}</h3><p>{tr('Trascina per esplorare, usa la rotella per lo zoom. Clicca un’icona per i dettagli della struttura, o un punto qualsiasi per bioma e quota. Cambia dimensione e profondità dalla barra della mappa.','Drag to explore, scroll to zoom. Click an icon for structure details, or any point for its biome and height. Switch dimension and depth from the map toolbar.')}</p></div>}
  <button className="help-link" onClick={p.onHelp}><Info size={15}/>{tr('Come funziona un seed?','How does a seed work?')}</button></aside>}

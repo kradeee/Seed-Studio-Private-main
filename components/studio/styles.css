@@ -158,3 +158,6 @@
 .support-link{display:flex;align-items:center;gap:6px;color:var(--lime)!important;font-weight:700}
 @media(max-width:800px){.about-grid{grid-template-columns:1fr}.footer-links{justify-content:center}.header-actions{gap:12px}.guide-button span{display:none}}
 @media(max-width:480px){.lang-switch svg{display:none}.lang-switch{padding:4px 9px}.site-header nav{gap:4px}.site-header nav button{padding:0 10px}}
+.support-nudge{display:flex;align-items:center;gap:9px;margin-top:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:7px;font-size:13px;color:#c5d0c9}
+.support-nudge svg{color:var(--lime);flex:none}.support-nudge b{color:var(--lime)}
+.support-nudge:hover{border-color:var(--lime);background:var(--surface-hover)}
