@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
-import {Check,X,SlidersHorizontal,Search,Square,Shuffle,Info,LoaderCircle,ChevronDown,TreePalm,MapPin,Coffee} from 'lucide-react';
-import {BIOME_GROUPS,COLORS,DIMENSIONS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,VERSIONS,fmt,hex,type Dimension} from './data';
+import {Check,X,SlidersHorizontal,Search,Square,Shuffle,Info,LoaderCircle,ChevronDown,TreePalm,MapPin,Coffee,Expand} from 'lucide-react';
+import {BIOME_GROUPS,COLORS,DIMENSIONS,STRUCTURES,STRUCTURE_BY_ID,STRONGHOLD,VERSIONS,VILLAGE,VILLAGE_STYLES,fmt,hex,type Dimension} from './data';
 import {BIOME_NAMES,tr} from './i18n';
 import {paint} from './tiles';
 import {SITE} from '../../site.config';
@@ -12,7 +12,7 @@ export type SearchResult={seed:string;spawnX:number;spawnZ:number;structures:{ty
  dim?:Dimension;ref?:{x:number;z:number};dists?:{kind:'s'|'b';id:number;d:number|null}[];score?:number;preview?:ResultPreview};
 type Props={mode:string;version:number;setVersion:(v:number)=>void;large:boolean;setLarge:(v:boolean)=>void;
  dim:Dimension;setDim:(d:Dimension)=>void;biomes:BiomeWish;setBiomes:(v:BiomeWish)=>void;structures:number[];setStructures:(v:number[])=>void;
- island:number;setIsland:(v:number)=>void;radius:number;setRadius:(v:number)=>void;nearSpawn:boolean;setNearSpawn:(v:boolean)=>void;rejected:number;
+ island:number;setIsland:(v:number)=>void;villageStyles:number[];setVillageStyles:(v:number[])=>void;lastEmpty:boolean;onRetryWider:()=>void;radius:number;setRadius:(v:number)=>void;nearSpawn:boolean;setNearSpawn:(v:boolean)=>void;rejected:number;
  supportBiomes:Set<number>|null;supportStructures:Record<number,number>;
  searching:boolean;progress:number;rate:number;message:string;results:SearchResult[];current:string;onOpen:(r:SearchResult)=>void;
  onSearch:()=>void;onStop:()=>void;onRandom:()=>void;onHelp:()=>void};
@@ -57,6 +57,10 @@ export default function Composer(p:Props){
   <div className="field-title"><span>{tr('STRUTTURE','STRUCTURES')}</span><small>{p.structures.length} {tr('di 8 max','of 8 max')}</small></div>
   <div className="struct-grid">{structs.map(s=>{const on=p.structures.includes(s.id);const ok=p.supportStructures[s.id]!==undefined?p.supportStructures[s.id]!==-100:true;const Icon=s.icon;
    return <button key={s.id} disabled={p.searching||(!ok&&!on)||(!on&&p.structures.length>=8)} title={ok?s.note:tr('Non esiste in questa versione','Not in this version')} aria-pressed={on} className={'struct '+(on?'selected':'')} onClick={()=>p.setStructures(on?p.structures.filter(i=>i!==s.id):[...p.structures,s.id])}><i style={{background:s.color}}><Icon size={12}/></i><span>{s.name}</span></button>})}</div>
+  {p.dim===0&&p.structures.includes(VILLAGE)&&<div className="village-styles" role="group" aria-label={tr('Stile del villaggio','Village style')}><span>{tr('Stile del villaggio','Village style')}</span><div>
+   <button className={!p.villageStyles.length?'active':''} aria-pressed={!p.villageStyles.length} disabled={p.searching} onClick={()=>p.setVillageStyles([])}>{tr('Qualsiasi','Any')}</button>
+   {VILLAGE_STYLES.map(v=>{const on=p.villageStyles.includes(v.id);return <button key={v.id} className={on?'active':''} aria-pressed={on} disabled={p.searching} onClick={()=>p.setVillageStyles(on?p.villageStyles.filter(i=>i!==v.id):[...p.villageStyles,v.id])}>{v.name}</button>})}
+  </div></div>}
   {p.dim===0&&<label className="village-check"><input type="checkbox" checked={p.island>0} onChange={e=>p.setIsland(e.target.checked?128:0)} disabled={p.searching}/><span><TreePalm size={15}/> {tr('Spawn su un’isola','Island spawn')}</span></label>}
   {p.dim===0&&p.island>0&&<div className="island-size"><span>{tr('Isola entro','Island within')}</span>{[64,128,256].map(n=><button key={n} className={p.island===n?'active':''} onClick={()=>p.setIsland(n)} disabled={p.searching}>{n}</button>)}<span>{tr('blocchi','blocks')}</span></div>}
   <div className="divider"/>
@@ -65,9 +69,10 @@ export default function Composer(p:Props){
   {p.dim===0&&<label className="village-check"><input type="checkbox" checked={p.nearSpawn} onChange={e=>p.setNearSpawn(e.target.checked)} disabled={p.searching}/><span>{tr('Tutto entro il raggio anche dallo spawn','Everything within the radius from spawn too')}</span></label>}
   <div className="search-action">{p.searching?<button className="primary" onClick={p.onStop}><Square size={17}/>{tr('Interrompi ricerca','Stop search')}</button>:<button className="primary" disabled={nothing} onClick={p.onSearch}><Search size={18}/>{tr('Cerca seed','Find seeds')}</button>}
    <div className={'search-message '+(p.searching?'running':'')} role="status">{p.searching&&<LoaderCircle size={14} className="spin"/>}{p.searching?`${fmt(p.progress)} ${tr('seed esaminati','seeds checked')}${p.rate?` · ${fmt(p.rate)}/s`:''}…`:p.message||tr('Tutti i criteri, nello stesso mondo.','Every criterion, in the same world.')}</div>
+   {!p.searching&&p.lastEmpty&&p.radius<2048&&<button className="retry-wider" onClick={p.onRetryWider}><Expand size={15}/>{tr('Riprova con raggio','Retry with radius')} ±{fmt(Math.min(2048,p.radius+512))}</button>}
   </div>
   {p.results.length>0&&<div className="results"><div className="field-title"><span>{tr('RISULTATI','RESULTS')}</span><select aria-label={tr('Ordina i risultati','Sort results')} value={sort} onChange={e=>setSort(e.target.value)}><option value="near">{tr('Più compatti prima','Most compact first')}</option><option value="order">{tr('In ordine di ritrovamento','In order found')}</option></select></div>
-   {p.rejected>0&&<small className="field-note">{p.rejected} {tr('scartati: qualcosa era troppo lontano dallo spawn.','dropped: something was too far from spawn.')}</small>}
+   {p.rejected>0&&<small className="field-note">{p.rejected} {p.villageStyles.length&&p.structures.includes(VILLAGE)?tr('scartati: troppo lontani dallo spawn o villaggio di un altro stile.','dropped: too far from spawn or a village of another style.'):tr('scartati: qualcosa era troppo lontano dallo spawn.','dropped: something was too far from spawn.')}</small>}
    {[...p.results].sort((a,b)=>sort==='near'?(a.score??0)-(b.score??0):a.order-b.order).map(r=>{const where=r.dim===0?tr('dallo spawn','from spawn'):r.dim===-1?tr('da 0, 0','from 0, 0'):tr('dal centro','from the centre');return <button key={r.seed} className={'result'+(p.current===r.seed?' active':'')} onClick={()=>{track('open-result');p.onOpen(r)}}><Thumb r={r}/><span className="result-body"><code>{r.seed}</code>
     {r.score!=null&&Number.isFinite(r.score)&&r.dists&&r.dists.length>0&&<strong>{tr('Tutto entro','All within')} {fmt(r.score)} {tr('blocchi','blocks')} {where}</strong>}
     <small><MapPin size={11}/>Spawn {fmt(r.spawnX)}, {fmt(r.spawnZ)}{r.island?` · ${tr('isola','island')} ${r.island.width}×${r.island.length}`:''}</small>

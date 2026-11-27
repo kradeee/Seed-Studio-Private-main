@@ -87,3 +87,12 @@ test('JS placement matches the engine (seeds × versions × types)', () => {
 test('the engine knows the newest version the site offers', () => {
     assert.ok(e.WASMmcNewest() >= NEWEST, `engine newest ${e.WASMmcNewest()} < ${NEWEST}`);
 });
+
+// Village style (the village search filter): checked in game on 26.3, see VERIFICA.md.
+test('village style matches the game (26.3)', () => {
+    const style = (seed, x, z) => e.structureVariant({ mcVersion: MC_26_3, seed, dimension: 0, type: 5, x, z }).variant;
+    const plains = style('12345', -144, -832), savanna = style('-4172144997902289642', -512, -368);
+    assert.equal(plains.supported, 1);
+    assert.equal(plains.biome, 1, 'seed 12345 village at -144 -832 is plains style');
+    assert.equal(savanna.biome, 35, 'seed -4172144997902289642 village at -512 -368 is savanna style');
+});

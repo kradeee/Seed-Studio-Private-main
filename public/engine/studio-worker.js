@@ -56,6 +56,18 @@ function detail(m){
  return info;
 }
 
+/* Every village in a rectangle with its style: the biome cubiomes builds it for (plains,
+ * desert, savanna, taiga, snowy plains; a meadow village is plains style) and whether it is
+ * abandoned. Positions failing the biome/terrain check are left out, as on the map. */
+function villages(m){
+ const out=[];
+ for(const v of S().structuresInRect(engine,{mcVersion:m.version,seed:m.seed,dimension:0,x0:m.x0,z0:m.z0,x1:m.x1,z1:m.z1,types:[5]})){
+  const r=engine.structureVariant({mcVersion:m.version,seed:m.seed,dimension:0,type:5,x:v.x,z:v.z}).variant;
+  out.push({x:v.x,z:v.z,style:r.supported?r.biome:-1,abandoned:!!r.abandoned});
+ }
+ return out;
+}
+
 self.onmessage=({data:m})=>{try{
  if(m.kind==='map'){
   const a=engine.getArea(m.version,m.seed,m.x,m.z,m.w,m.h,m.dim,m.y,m.dim===0);
@@ -75,6 +87,8 @@ self.onmessage=({data:m})=>{try{
   const res=engine.nearestStructures({mcVersion:m.version,seed:m.seed,dimension:m.dim,x:m.x,z:m.z,types,maxRadiusBlocks:m.radius||6000}).results.filter(r=>r.found===1).map(r=>({type:r.type,x:r.x,z:r.z}));
   if(m.dim===0&&m.types.includes(STRONGHOLD)){const sh=S().strongholds(engine,m.version,m.seed,3);let best=null;for(const s of sh){const d=Math.hypot(s.x-m.x,s.z-m.z);if(!best||d<best.d)best={d,s}}if(best)res.push({type:STRONGHOLD,x:best.s.x,z:best.s.z})}
   self.postMessage({kind:'nearest',id:m.id,results:res});
+ }else if(m.kind==='villages'){
+  self.postMessage({kind:'villages',id:m.id,villages:villages(m)});
  }else if(m.kind==='support'){
   const s=engine.getVersionSupport(m.version,m.biomes,m.structures);
   self.postMessage({kind:'support',id:m.id,biomes:s.biomes,structures:s.structures});

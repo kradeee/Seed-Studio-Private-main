@@ -8,7 +8,7 @@ import {track} from './analytics';
 import {LANG,asset,otherLanguageUrl,tr} from './i18n';
 import {SITE} from '../../site.config';
 import Composer,{type BiomeWish,type SearchResult} from './Composer';
-import {PRESETS,BIOME_GROUPS,STRUCTURES,STRONGHOLD,normalizeSeed,randomSeed,VERSIONS,packVersion,type Dimension} from './data';
+import {PRESETS,BIOME_GROUPS,STRUCTURES,STRONGHOLD,VILLAGE,normalizeSeed,randomSeed,VERSIONS,packVersion,type Dimension} from './data';
 import {rpc,WORKER_URL} from './engine-client';
 
 const PRESET_SLUGS=['blossom-valley','peaks','island','speedrun','deep','nether'];
@@ -21,7 +21,7 @@ const ALL_BIOMES=BIOME_GROUPS.flatMap(g=>g.ids);
 
 export default function Studio(){
  const [mode,setMode]=useState('compose'),[seed,setSeed]=useState('8678942899319966093'),[input,setInput]=useState('8678942899319966093'),[version,setVersion]=useState(26),[large,setLarge]=useState(false);
- const [sDim,setSDim]=useState<Dimension>(0),[biomes,setBiomes]=useState<BiomeWish>({185:1,1:1}),[structures,setStructures]=useState<number[]>([5]),[island,setIsland]=useState(0),[radius,setRadius]=useState(1024),[nearSpawn,setNearSpawn]=useState(true),[rejected,setRejected]=useState(0);
+ const [sDim,setSDim]=useState<Dimension>(0),[biomes,setBiomes]=useState<BiomeWish>({185:1,1:1}),[structures,setStructures]=useState<number[]>([5]),[island,setIsland]=useState(0),[villageStyles,setVillageStyles]=useState<number[]>([]),[lastEmpty,setLastEmpty]=useState(false),[radius,setRadius]=useState(1024),[nearSpawn,setNearSpawn]=useState(true),[rejected,setRejected]=useState(0);
  const [searching,setSearching]=useState(false),[progress,setProgress]=useState(0),[rate,setRate]=useState(0),[message,setMessage]=useState(''),[results,setResults]=useState<SearchResult[]>([]),[error,setError]=useState(''),[copied,setCopied]=useState(false),[help,setHelp]=useState(false),[preset,setPreset]=useState(-1);
  const [supportBiomes,setSupportBiomes]=useState<Set<number>|null>(null),[supportStructures,setSupportStructures]=useState<Record<number,number>>({}),[focus,setFocus]=useState<MapFocus|null>(null);
  const pool=useRef<Worker[]>([]),timer=useRef<ReturnType<typeof setTimeout>|null>(null),copyTimer=useRef<ReturnType<typeof setTimeout>|null>(null),dialog=useRef<HTMLDialogElement>(null),lastTrigger=useRef<HTMLElement|null>(null);
@@ -64,16 +64,19 @@ export default function Studio(){
  const applySeed=(value:string)=>{try{const s=normalizeSeed(value);setSeed(s);setInput(s);setError('');return s}catch(e){const m=(e as Error).message;setError(m);throw e}};
  const openResult=(r:SearchResult,dim:Dimension=r.dim??sDim)=>{applySeed(r.seed);const first=r.structures[0];const c=r.ref||(dim===0?{x:r.spawnX,z:r.spawnZ}:{x:0,z:0});setFocus({n:++focusSeq,dim,x:first?first.x:c.x,z:first?first.z:c.z,type:first?.type})};
 
- type Criteria={biomes:BiomeWish;structures:number[];island:number;dim:Dimension;radius?:number};
+ type Criteria={biomes:BiomeWish;structures:number[];island:number;dim:Dimension;radius?:number;villageStyles?:number[]};
+ type Village={x:number;z:number;style:number;abandoned:boolean};
  const search=(c?:Criteria)=>{
-  stop();setError('');setMessage('');setProgress(0);setRate(0);setResults([]);setRejected(0);
+  stop();setError('');setMessage('');setProgress(0);setRate(0);setResults([]);setRejected(0);setLastEmpty(false);
   const token=++searchSeq;
-  const cr:Criteria=c||{biomes,structures,island,dim:sDim};
+  const cr:Criteria=c||{biomes,structures,island,dim:sDim,villageStyles};
   const want=Object.keys(cr.biomes).map(Number).filter(id=>cr.biomes[id]===1),avoid=Object.keys(cr.biomes).map(Number).filter(id=>cr.biomes[id]===-1);
   const structs=cr.structures.filter(id=>supportStructures[id]===undefined||supportStructures[id]!==-100);
   let range=cr.radius??radius;if(structs.includes(21)&&range<1024){range=1024;setRadius(1024)}
   if(!want.length&&!avoid.length&&!structs.length&&!cr.island)return;
   const fromSpawn=nearSpawn&&cr.dim===0;
+  const styles=cr.dim===0&&structs.includes(VILLAGE)?(cr.villageStyles??[]):[];
+  const dropWhy=styles.length?tr('troppo lontani dallo spawn o con un villaggio di un altro stile','too far from spawn or with a village of another style'):tr('troppo lontani dallo spawn','too far from spawn');
   setSearching(true);track(cr.dim===0?'search':cr.dim===-1?'search-nether':'search-end');
   const shard=structs.length?4096:cr.island&&!want.length&&!avoid.length?128:8;
   let done=0,found:SearchResult[]=[],waiting=0,dropped=0;const seen=new Set<string>();const live=new Map<Worker,number>();const t0=now();
@@ -82,7 +85,16 @@ export default function Studio(){
   const finish=(msg:string)=>{stop();setMessage(msg)};
   /* Every hit gets a little map and is re-measured from its spawn (Overworld): the engine
    * searches around 0, 0, but players start at spawn. */
-  const enrich=async(r:SearchResult)=>{
+  const enrich=async(r:SearchResult):Promise<SearchResult|null>=>{
+   /* Village style: the engine finds a village, not its style. Keep the seed only if some
+    * village of a wanted style is inside the searched square, and show the one nearest spawn. */
+   if(styles.length){
+    const {villages}=await rpc<{villages:Village[]}>('villages',{seed:r.seed,version:packed,x0:-range,z0:-range,x1:range,z1:range},'preview');
+    const d=(v:Village)=>Math.hypot(v.x-r.spawnX,v.z-r.spawnZ);
+    const ok=villages.filter(v=>styles.includes(v.style)&&Math.abs(v.x)<=range&&Math.abs(v.z)<=range).sort((a,b)=>d(a)-d(b));
+    if(!ok.length)return null;
+    r={...r,structures:r.structures.map(s=>s.type===VILLAGE?{type:VILLAGE,x:ok[0].x,z:ok[0].z}:s)};
+   }
    const ref=cr.dim===0?{x:r.spawnX,z:r.spawnZ}:cr.dim===1&&r.structures.length?{x:Math.round(r.structures.reduce((a,s)=>a+s.x,0)/r.structures.length),z:Math.round(r.structures.reduce((a,s)=>a+s.z,0)/r.structures.length)}:{x:0,z:0};
    const far=Math.max(0,...r.structures.map(s=>Math.hypot(s.x-ref.x,s.z-ref.z)));
    const half=Math.round(Math.max(192,Math.min(384,far+96))/4)*4;
@@ -102,7 +114,7 @@ export default function Studio(){
     else if(m.kind==='SEED_FOUND'){const r:SearchResult={seed:BigInt.asIntN(64,BigInt(m.data.seed)).toString(),spawnX:m.data.spawnX,spawnZ:m.data.spawnZ,structures:m.data.structures,island:m.data.island,order:0};
      if(seen.has(r.seed)||found.length+waiting>=MAX_RESULTS+4)return;seen.add(r.seed);waiting++;
      enrich(r).then(er=>{waiting--;if(token!==searchSeq)return;
-      if(fromSpawn&&er.score>range){dropped++;setRejected(dropped);return}
+      if(!er||(fromSpawn&&(er.score??0)>range)){dropped++;setRejected(dropped);return}
       if(found.length>=MAX_RESULTS)return;
       found=[...found,{...er,order:found.length}];setResults(found);if(found.length===1)openResult(found[0],cr.dim);
       if(found.length>=MAX_RESULTS){track('search-found');finish(tr(`${MAX_RESULTS} seed trovati con tutti i criteri. Clicca un risultato per esplorarlo.`,`${MAX_RESULTS} seeds found with every criterion. Click a result to explore it.`))}
@@ -111,14 +123,15 @@ export default function Studio(){
      done+=m.examined;live.delete(w);tickProgress();dispatch(w)}
     else if(m.kind==='error'){finish('');setError(tr('Errore durante la ricerca. Riprova con un raggio più piccolo.','Search error. Try again with a smaller radius.'))}
    }}
-  timer.current=setTimeout(()=>{const k=found.length;track(k?'search-found':'search-empty');const extra=dropped?tr(` ${dropped} scartati perché troppo lontani dallo spawn.`,` ${dropped} dropped for being too far from spawn.`):'';finish(k?tr(`${k} seed trovati in 60 secondi.${extra} Clicca un risultato per esplorarlo.`,`${k} seeds found in 60 seconds.${extra} Click a result to explore it.`):tr(`Nessun risultato in 60 secondi.${extra} Prova un raggio più ampio o meno criteri: non significa che il mondo sia impossibile.`,`No results in 60 seconds.${extra} Try a wider radius or fewer criteria: it does not mean the world is impossible.`))},TIME_LIMIT);
+  timer.current=setTimeout(()=>{const k=found.length;track(k?'search-found':'search-empty');if(!k)setLastEmpty(true);const extra=dropped?tr(` ${dropped} scartati: ${dropWhy}.`,` ${dropped} dropped: ${dropWhy}.`):'';finish(k?tr(`${k} seed trovati in 60 secondi.${extra} Clicca un risultato per esplorarlo.`,`${k} seeds found in 60 seconds.${extra} Click a result to explore it.`):tr(`Nessun risultato in 60 secondi.${extra} Prova un raggio più ampio o meno criteri: non significa che il mondo sia impossibile.`,`No results in 60 seconds.${extra} Try a wider radius or fewer criteria: it does not mean the world is impossible.`))},TIME_LIMIT);
  };
- const choosePreset=(i:number)=>{const p=PRESETS[i];track('preset-'+PRESET_SLUGS[i]);const b:BiomeWish={};p.biomes.forEach(id=>b[id]=1);setPreset(i);setMode('compose');setSDim(p.dimension);setBiomes(b);setStructures(p.structures);setIsland(p.island);setRadius(p.radius);search({biomes:b,structures:p.structures,island:p.island,dim:p.dimension,radius:p.radius})};
+ const choosePreset=(i:number)=>{const p=PRESETS[i];track('preset-'+PRESET_SLUGS[i]);const b:BiomeWish={};p.biomes.forEach(id=>b[id]=1);setPreset(i);setMode('compose');setSDim(p.dimension);setBiomes(b);setStructures(p.structures);setIsland(p.island);setRadius(p.radius);setVillageStyles([]);search({biomes:b,structures:p.structures,island:p.island,dim:p.dimension,radius:p.radius,villageStyles:[]})};
+ const retryWider=()=>{const r=Math.min(2048,radius+512);track('search-retry-wider');setRadius(r);search({biomes,structures,island,dim:sDim,radius:r,villageStyles})};
  const random=()=>{track('random-seed');stop();applySeed(randomSeed());setMessage(tr('Seed casuale: i criteri di composizione non sono applicati.','Random seed: your composition criteria are not applied.'));setPreset(-1)};
  useEffect(()=>{const c=(document as Document&{modelContext?:{registerTool:(t:unknown,o:unknown)=>Promise<void>}}).modelContext;if(!c?.registerTool)return;const ac=new AbortController();Promise.resolve(c.registerTool({name:'explore_minecraft_seed',description:'Show the map of a Minecraft Java seed. Does not search by criteria.',inputSchema:{type:'object',properties:{seed:{type:'string'}},required:['seed'],additionalProperties:false},annotations:{readOnlyHint:false},execute:async(v:{seed:string})=>{if(!v||typeof v.seed!=='string')throw new Error('Seed required');const s=normalizeSeed(v.seed);setSeed(s);setInput(s);setMode('explore');return{seed:s,status:'map_requested'}}},{signal:ac.signal})).catch(()=>{});return()=>ac.abort()},[]);
  const copy=async()=>{track('copy-seed');try{await navigator.clipboard.writeText(seed);setCopied(true);copyTimer.current=setTimeout(()=>setCopied(false),2200)}catch{setError(tr('Copia automatica non disponibile: seleziona il numero nel campo Seed.','Automatic copy is not available: select the number in the Seed field.'))}};
  const versionName=useMemo(()=>VERSIONS.find(v=>v.id===version)?.name,[version]);
- const clear=()=>setMessage('');
+ const clear=()=>{setMessage('');setLastEmpty(false)};
 
  const fav=useFavorites();const saved=fav.has(seed,version,large);
  const openFavorite=(f:{seed:string;version:number;large:boolean})=>{stop();setVersion(f.version);setLarge(f.large);applySeed(f.seed);setMode('explore');setMessage('');setPreset(-1)};
@@ -129,7 +142,7 @@ export default function Studio(){
  <div className="header-actions"><a className="lang-switch" onClick={()=>track(EN?'switch-to-it':'switch-to-en')} href={otherLanguageUrl()} hrefLang={EN?'it':'en'} lang={EN?'it':'en'} title={EN?'Versione italiana':'English version'}><Languages size={17}/><span>{EN?'IT':'EN'}</span></a><button className="guide-button" onClick={()=>{track('open-guide');setHelp(true)}}><HelpCircle size={20}/><span>{tr('Guida','Guide')}</span></button></div></header>
  <main><div className="page-heading"><div><h1>{tr('Il tuo prossimo mondo, da qui.','Your next Minecraft world starts here.')}</h1><p>{tr('Biomi, strutture, Nether ed End: tutto calcolato come nel gioco.','Biomes, structures, Nether and End: all calculated just like the game.')}</p></div><span className="edition-label">Minecraft Java <b>{versionName}{large?tr(' · biomi grandi',' · large biomes'):''}</b></span></div>
  <div className="workspace"><Composer mode={mode} version={version} setVersion={v=>{setVersion(v);clear()}} large={large} setLarge={v=>{setLarge(v);clear()}} dim={sDim} setDim={d=>{setSDim(d);setBiomes({});setStructures(s=>s.filter(id=>STRUCTURES.find(x=>x.id===id)?.dims.includes(d)));setPreset(-1);clear()}}
-  biomes={biomes} setBiomes={v=>{setBiomes(v);setPreset(-1);clear()}} structures={structures} setStructures={v=>{setStructures(v);setPreset(-1);clear()}} island={island} setIsland={v=>{setIsland(v);setPreset(-1);clear()}} radius={radius} setRadius={v=>{setRadius(v);clear()}} nearSpawn={nearSpawn} setNearSpawn={v=>{setNearSpawn(v);clear()}} rejected={rejected}
+  biomes={biomes} setBiomes={v=>{setBiomes(v);setPreset(-1);clear()}} structures={structures} setStructures={v=>{setStructures(v);setPreset(-1);clear()}} island={island} setIsland={v=>{setIsland(v);setPreset(-1);clear()}} villageStyles={villageStyles} setVillageStyles={v=>{setVillageStyles(v);setPreset(-1);clear()}} lastEmpty={lastEmpty} onRetryWider={retryWider} radius={radius} setRadius={v=>{setRadius(v);clear()}} nearSpawn={nearSpawn} setNearSpawn={v=>{setNearSpawn(v);clear()}} rejected={rejected}
   supportBiomes={supportBiomes} supportStructures={supportStructures} searching={searching} progress={progress} rate={rate} message={message} results={results} current={seed} onOpen={r=>openResult(r)}
   onSearch={()=>search()} onStop={()=>{stop();setMessage(results.length?tr(`Ricerca interrotta: ${results.length} seed trovati.`,`Search stopped: ${results.length} seeds found.`):tr('Ricerca interrotta. Puoi modificare i criteri e riprovare.','Search stopped. You can change the criteria and try again.'))}} onRandom={random} onHelp={()=>setHelp(true)}/>
  <div className="world-column"><WorldMap seed={seed} version={packed} baseVersion={version} onError={setError} focus={focus} onViewChange={onViewChange} linkTo={p=>buildUrl({x:p.x,z:p.z,dim:p.dim,bpp:Math.min(viewRef.current.bpp,1),sel:p.type})}/><form className="seed-bar" onSubmit={e=>{e.preventDefault();try{stop();applySeed(input);setMessage(tr('Seed caricato. I criteri di composizione non sono applicati.','Seed loaded. Your composition criteria are not applied.'));setPreset(-1)}catch{/* shown by applySeed */}}}><label htmlFor="seed">{tr('SEED DEL MONDO','WORLD SEED')}</label><div className="seed-input"><input id="seed" value={input} onChange={e=>setInput(e.target.value)} spellCheck={false} autoComplete="off" aria-describedby={error?'seed-error':undefined}/><button className="icon-button" type="submit" aria-label={tr('Esplora questo seed','Explore this seed')}><Search size={18}/></button></div><button className="copy-button" type="button" onClick={copy}>{copied?<Check size={18}/>:<Copy size={18}/>}<span>{copied?tr('Copiato!','Copied!'):tr('Copia seed','Copy seed')}</span></button><button className="copy-button" type="button" onClick={share}>{shared?<Check size={18}/>:<Share2 size={18}/>}<span>{shared?tr('Link copiato!','Link copied!'):tr('Condividi','Share')}</span></button><button className={'copy-button'+(saved?' saved':'')} type="button" aria-pressed={saved} onClick={()=>{if(!saved)track('save-seed');fav.toggle(seed,version,large)}}><Star size={18} fill={saved?'currentColor':'none'}/><span>{saved?tr('Salvato','Saved'):tr('Salva','Save')}</span></button><button className="icon-button random-button" aria-label={tr('Genera seed casuale','Random seed')} type="button" onClick={random}><Shuffle size={19}/></button></form>

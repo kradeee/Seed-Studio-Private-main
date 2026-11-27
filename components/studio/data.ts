@@ -69,6 +69,12 @@ export const STRUCTURES:StructureMeta[]=[
 ];
 /* The id to check a structure in game: /locate structure <id> (# = every variant). */
 export const LOCATE_ID:Record<number,string>={5:'#village',10:'pillager_outpost',1:'desert_pyramid',2:'jungle_pyramid',3:'swamp_hut',4:'igloo',6:'#ocean_ruin',7:'#shipwreck',8:'monument',9:'mansion',11:'#ruined_portal',13:'ancient_city',24:'trail_ruins',25:'trial_chambers',99:'stronghold',18:'fortress',19:'bastion_remnant',21:'end_city'};
+/* Village styles: the biome the game builds a village for (a meadow village is plains style). */
+export const VILLAGE=5;
+export const VILLAGE_STYLES:{id:number;name:string}[]=[
+ {id:1,name:tr('Pianura','Plains')},{id:2,name:tr('Deserto','Desert')},{id:35,name:tr('Savana','Savanna')},
+ {id:5,name:tr('Taiga','Taiga')},{id:12,name:tr('Innevato','Snowy')}
+];
 export const STRUCTURE_BY_ID=new Map(STRUCTURES.map(s=>[s.id,s]));
 export const DEFAULT_LAYERS=[5,10,1,2,3,4,8,9,11,13,24,25,26,STRONGHOLD,18,19,21];
 
