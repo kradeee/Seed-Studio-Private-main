@@ -56,6 +56,30 @@ function detail(m){
  return info;
 }
 
+/* Valley spawn: the estimated surface height in 8 directions (45° sectors) between 48 and
+ * 320 blocks from spawn. ok when the lowest of the 8 sector peaks reaches `peak` and the
+ * spawn sits at least `rel` blocks below it. Heights are the generator's estimate (the map's
+ * relief), at 4-block resolution. */
+const VALLEY_MIN=48,VALLEY_MAX=320,SECTORS=8;
+function valley(version,seed,sx,sz,peak,rel){
+ const n=VALLEY_MAX/4,W=2*n,x0=Math.floor(sx/4)-n,z0=Math.floor(sz/4)-n;
+ const H=engine.getArea(version,seed,x0,z0,W,W,0,256,true).heights;if(!H)return{ok:false,minPeak:null,spawnY:null};
+ const bw=W+2,h=(i,j)=>H[(j+1)*bw+i+1],best=new Array(SECTORS).fill(-9999);
+ for(let j=0;j<W;j++)for(let i=0;i<W;i++){const dx=i-n,dz=j-n,d=Math.hypot(dx,dz)*4;if(d<VALLEY_MIN||d>VALLEY_MAX)continue;
+  const k=Math.floor((Math.atan2(dz,dx)+Math.PI)/(2*Math.PI)*SECTORS)%SECTORS,v=h(i,j);if(v>best[k])best[k]=v}
+ const minPeak=Math.min(...best),spawnY=h(n,n);
+ return{ok:minPeak>=peak&&spawnY<=minPeak-rel,minPeak,spawnY};
+}
+/* A search shard with the valley as the only criterion: walk `count` seeds from `start`,
+ * speaking the same protocol as find_seeds (SEED_UPDATE, SEED_FOUND, complete). */
+function scanValley(m){
+ let seed=BigInt(m.start);const t0=Date.now();let last=t0;
+ for(let i=0;i<m.count;i++,seed++){const sd=BigInt.asIntN(64,seed).toString();const r=engine.seedSummary({mcVersion:m.version,seed:sd}),sm=r.summary||r;
+  if(valley(m.version,sd,sm.spawnX,sm.spawnZ,m.peak,m.rel).ok)self.postMessage({kind:'SEED_FOUND',data:{seed:sd,spawnX:sm.spawnX,spawnZ:sm.spawnZ,structures:[],island:null,examined:i+1}});
+  const now=Date.now();if(now-last>250){last=now;self.postMessage({kind:'SEED_UPDATE',data:{examined:i+1,tested:i+1}})}}
+ self.postMessage({kind:'complete',shardId:m.shardId,examined:m.count,error:null});
+}
+
 /* Open sea around an island spawn: the distance (blocks, 4-block cells) from spawn to the
  * nearest land within `radius` that is NOT part of the spawn island, or null when there is
  * none. The spawn island is flood-filled from the spawn cell (4-neighbours, any non-ocean
@@ -108,6 +132,10 @@ self.onmessage=({data:m})=>{try{
   const res=engine.nearestStructures({mcVersion:m.version,seed:m.seed,dimension:m.dim,x:m.x,z:m.z,types,maxRadiusBlocks:m.radius||6000}).results.filter(r=>r.found===1).map(r=>({type:r.type,x:r.x,z:r.z}));
   if(m.dim===0&&m.types.includes(STRONGHOLD)){const sh=S().strongholds(engine,m.version,m.seed,3);let best=null;for(const s of sh){const d=Math.hypot(s.x-m.x,s.z-m.z);if(!best||d<best.d)best={d,s}}if(best)res.push({type:STRONGHOLD,x:best.s.x,z:best.s.z})}
   self.postMessage({kind:'nearest',id:m.id,results:res});
+ }else if(m.kind==='valley'){
+  self.postMessage({kind:'valley',id:m.id,...valley(m.version,m.seed,m.x,m.z,m.peak,m.rel)});
+ }else if(m.kind==='scanValley'){
+  scanValley(m);
  }else if(m.kind==='otherLand'){
   self.postMessage({kind:'otherLand',id:m.id,distance:otherLand(m)});
  }else if(m.kind==='villages'){

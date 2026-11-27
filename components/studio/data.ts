@@ -75,6 +75,15 @@ export const VILLAGE_STYLES:{id:number;name:string}[]=[
  {id:1,name:tr('Pianura','Plains')},{id:2,name:tr('Deserto','Desert')},{id:35,name:tr('Savana','Savanna')},
  {id:5,name:tr('Taiga','Taiga')},{id:12,name:tr('Innevato','Snowy')}
 ];
+/* Valley spawn levels: the lowest of 8 directional peaks (48-320 blocks from spawn) must reach
+ * `peak`, with the spawn at least `rel` blocks below it. Chosen from a sample of ~1,560 seeds
+ * (26.3): about 25, 4 and 2 results a minute at 32 seeds/s. Labels show the height, because a
+ * Y 120 "mountain" can be a badlands plateau. */
+export const VALLEY_LEVELS:{id:number;name:string;peak:number;rel:number}[]=[
+ {id:1,name:tr('Colline','Hills'),peak:100,rel:20},
+ {id:2,name:tr('Montagne','Mountains'),peak:130,rel:30},
+ {id:3,name:tr('Vette','High peaks'),peak:145,rel:30}
+];
 export const STRUCTURE_BY_ID=new Map(STRUCTURES.map(s=>[s.id,s]));
 export const DEFAULT_LAYERS=[5,10,1,2,3,4,8,9,11,13,24,25,26,STRONGHOLD,18,19,21];
 

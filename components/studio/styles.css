@@ -170,3 +170,5 @@
 .retry-wider{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:8px;padding:8px 10px;border:1px solid var(--lime);border-radius:7px;color:var(--lime);font-size:13px;font-weight:700}
 .retry-wider:hover{background:#c4f27814}
 .open-sea{flex-wrap:wrap}
+.village-styles.valley>span{display:flex;align-items:center;gap:6px}
+.village-styles.valley small{display:block;margin-top:6px;font-size:11px;line-height:1.4;color:#7f8f86}
