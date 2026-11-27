@@ -19,11 +19,9 @@
 
 ## What is Seed Studio?
 
-Most Minecraft seed tools start with a number and tell you what is inside it.
+Seed Studio is a **Minecraft Java seed finder that runs in your browser**. You describe the world you want (biomes, structures, dimension, a spawn in a valley between mountains or on an island in open sea) and it tests real seeds until it finds the ones that match, measuring every result from where you actually spawn.
 
-**Seed Studio works the other way around.**
-
-You describe the world you want, choose biomes, structures, dimensions and generation preferences, then explore seeds that match those constraints.
+Like other seed finders, it doesn't create worlds to order: every seed already exists, and the search finds the right ones. What Seed Studio adds is **zero install** (any browser, phone included), **spawn-relative results** and filters such as **village style**, **valley spawns** and **open-sea islands**.
 
 It combines a fast browser-based world engine with an interactive map and an optional local Minecraft preview service, so a seed can go from **search result → map → actual first-person world** without leaving the project.
 
