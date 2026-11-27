@@ -56,6 +56,27 @@ function detail(m){
  return info;
 }
 
+/* Open sea around an island spawn: the distance (blocks, 4-block cells) from spawn to the
+ * nearest land within `radius` that is NOT part of the spawn island, or null when there is
+ * none. The spawn island is flood-filled from the spawn cell (4-neighbours, any non-ocean
+ * biome counts as land, so beaches and rivers belong to it). */
+const OCEAN_IDS=new Set([0,10,24,44,45,46,47,48,49,50]);
+function otherLand(m){
+ const n=Math.ceil(m.radius/4),x0=Math.floor(m.x/4)-n,z0=Math.floor(m.z/4)-n,W=2*n+1;
+ const ids=engine.getArea(m.version,m.seed,x0,z0,W,W,0,256,false).ids;const land=i=>!OCEAN_IDS.has(ids[i]);
+ const seen=new Uint8Array(W*W);let s=n*W+n;
+ if(!land(s)){let best=-1,bd=Infinity;for(let i=0;i<W*W;i++)if(land(i)){const dx=i%W-n,dz=(i/W|0)-n,d=dx*dx+dz*dz;if(d<bd){bd=d;best=i}}if(best<0)return null;s=best}
+ const stack=[s];seen[s]=1;
+ while(stack.length){const i=stack.pop(),x=i%W,z=i/W|0;
+  if(x>0&&!seen[i-1]&&land(i-1)){seen[i-1]=1;stack.push(i-1)}
+  if(x<W-1&&!seen[i+1]&&land(i+1)){seen[i+1]=1;stack.push(i+1)}
+  if(z>0&&!seen[i-W]&&land(i-W)){seen[i-W]=1;stack.push(i-W)}
+  if(z<W-1&&!seen[i+W]&&land(i+W)){seen[i+W]=1;stack.push(i+W)}}
+ let near=null;const r2=n*n;
+ for(let i=0;i<W*W;i++)if(!seen[i]&&land(i)){const dx=i%W-n,dz=(i/W|0)-n,d=dx*dx+dz*dz;if(d<=r2&&(near===null||d<near))near=d}
+ return near===null?null:Math.round(Math.sqrt(near)*4);
+}
+
 /* Every village in a rectangle with its style: the biome cubiomes builds it for (plains,
  * desert, savanna, taiga, snowy plains; a meadow village is plains style) and whether it is
  * abandoned. Positions failing the biome/terrain check are left out, as on the map. */
@@ -87,6 +108,8 @@ self.onmessage=({data:m})=>{try{
   const res=engine.nearestStructures({mcVersion:m.version,seed:m.seed,dimension:m.dim,x:m.x,z:m.z,types,maxRadiusBlocks:m.radius||6000}).results.filter(r=>r.found===1).map(r=>({type:r.type,x:r.x,z:r.z}));
   if(m.dim===0&&m.types.includes(STRONGHOLD)){const sh=S().strongholds(engine,m.version,m.seed,3);let best=null;for(const s of sh){const d=Math.hypot(s.x-m.x,s.z-m.z);if(!best||d<best.d)best={d,s}}if(best)res.push({type:STRONGHOLD,x:best.s.x,z:best.s.z})}
   self.postMessage({kind:'nearest',id:m.id,results:res});
+ }else if(m.kind==='otherLand'){
+  self.postMessage({kind:'otherLand',id:m.id,distance:otherLand(m)});
  }else if(m.kind==='villages'){
   self.postMessage({kind:'villages',id:m.id,villages:villages(m)});
  }else if(m.kind==='support'){
